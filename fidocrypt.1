@@ -235,7 +235,7 @@ Overridden by the
 option.
 .El
 .Sh EXAMPLES
-.Bd -literal
+.Bd -literal -offset abcd
 % ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
 	example.crypt
 tap key to enroll; waiting...
@@ -253,6 +253,35 @@ tap key to enroll; waiting...
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
 .Ed
+.Pp
+Once you have created a cryptfile named
+.Pa cgd.crypt
+with several U2F/FIDO security keys enrolled, using
+.Sq Li fidocrypt.example.com
+as the relying party id, create a
+.Xr cgd 4
+parameters file that combines a password and the fidocrypt secret:
+.Bd -literal -offset abcd
+algorithm adiantum;
+iv-method encblkno1;
+keylength 256;
+verify_method gpt;
+keygen pkcs5_pbkdf2/sha1 {
+    iterations 458588;
+    salt AAAAgNXFkicvB33MhEfPLnXF2AI=;
+};
+keygen shell_cmd {
+    cmd "fidocrypt -r fidocrypt.example.com get -F raw cgd.crypt";
+};
+.Ed
+.Pp
+This way, the
+.Xr cgd 4
+disk can be opened only with the password
+.Em and
+at least one of the U2F/FIDO security keys (and the
+.Xr cgd 4
+parameters file).
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -diag
