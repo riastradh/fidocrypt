@@ -1,0 +1,13 @@
+*.d
+*.o
+*.out
+*~
+
+/fidocrypt
+/fidokdf
+/t_assert_decrypt
+/t_assert_kdf
+/t_cred_encrypt
+/t_cred_kdf
+/t_dae
+/t_recover

@@ -1,0 +1,324 @@
+.\" Copyright (c) 2020 Taylor R. Campbell
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd December 24, 2020
+.Dt FIDOCRYPT 1
+.Os
+.Sh NAME
+.Nm fidocrypt
+.Nd store a short secret in a file encrypted with U2F/FIDO
+.Sh SYNOPSIS
+.Nm
+.Op Fl dqv
+.Op Fl r Ar rpid
+.Ar command
+.Op Ar args...
+.Sh DESCRIPTION
+The
+.Nm
+utility stores a short secret in a file encrypted with U2F/FIDO
+security keys.
+The file is called a
+.Em cryptfile ,
+and any U2F/FIDO security key enrolled in it with
+.Cm fidocrypt enroll
+can be used with
+.Cm fidocrypt get
+to decrypt the enclosed secret.
+The secret may then be used for other purposes, such as a
+.Xr cgd 4
+disk encryption key.
+.Pp
+.Sy WARNING :
+.Nm
+is a work in progress.
+The file format is not stable and will likely be replaced by a sqlite3
+database soon, in order to facilitate giving nicknames to security keys
+and unenrolling security keys.
+.Ss Common options
+.Bl -tag -width abcd
+.It Fl d
+Enable debug output: print various internal diagnostics to stderr.
+For additional (and very verbose) debug output including the raw
+U2F/CTAP transactions, which might include secrets, you may also set
+the
+.Ev FIDO_DEBUG
+environment variable.
+.It Fl v
+Enable verbose output: print the vendor and product ids of the devices
+being queried to stderr.
+.It Fl q
+Quiet \(em suppress messages to the tty prompting taps.
+Error messages may still be printed to stderr.
+.It Fl r Ar rpid
+Set the relying party id.
+.Pp
+.Sy WARNING :
+You should set this to a DNS name that identifies the purpose of the
+cryptfile, distinctly from any other U2F/FIDO usage to avoid
+cross-domain attacks.
+Don't set the relying party id to the domain name of any web site that
+you log into with U2F/FIDO.
+.Pp
+Instead of the
+.Fl r
+option, you can set the
+.Ev FIDOCRYPT_RPID
+environment variable; when both are specified, the
+.Fl r
+option takes precedence.
+.El
+.Ss Commands
+.Bl -tag -width abcd
+.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl s Ar secretfile Oc Ar cryptfile
+Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
+secret with it.
+.Bl -bullet -compact
+.It
+If
+.Ar secretfile
+is specified, it will be read and its verbatim contents will be chosen
+as the secret.
+If
+.Ar secretfile
+is
+.Sq Li - ,
+the secret will be read from stdin.
+It must be at most 65536 bytes long \(em
+.Nm
+is not meant for storing long secrets, only short secrets such as
+encryption keys.
+.It
+Otherwise, if
+.Ar cryptfile
+already exists and no
+.Ar secretfile
+is specified, you will be prompted to tap a U2F/FIDO security key that
+is already enrolled in order to derive the secret that is already
+stored.
+.It
+Otherwise, if
+.Ar cryptfile
+does not exist and no
+.Ar secretfile
+is specified,
+.Nm
+will generate a 32-byte string uniformly at random and use that as the
+secret and create a new cryptfile.
+.El
+.Pp
+You will then be prompted to tap a new U2F/FIDO security key, not
+currently enrolled in
+.Ar cryptfile ,
+to enroll.
+.Pp
+.Sy WARNING :
+If you specify
+.Fl s Ar secretfile
+for a cryptfile that already has a secret stored in it,
+.Nm
+has no way to verify that it is the
+.Em same
+secret as is already stored, so you may end up with a cryptfile that
+stores different secrets for different U2F/FIDO security keys.
+You should use this only in an application that has already gotten the
+stored secret with
+.Cm fidocrypt get
+and still has it in memory, in order to reduce the amount of device
+tapping.
+.Pp
+The options
+.Fl N Ar username
+and
+.Fl u Ar userid
+arguments are mandatory, but
+.Nm
+assigns them no particular meaning.
+U2F/FIDO devices with displays might show them on the display.
+You may also set the environment variables
+.Ev FIDOCRYPT_USERNAME
+and
+.Ev FIDOCRYPT_USERID
+instead; when both the environment variable and the command-line
+argument are specified, the command-line argument takes precedence.
+.It Cm get Fl F Ar format Ar cryptfile
+Get the secret stored in the cryptfile and print it to stdout in the
+specified format.
+You will be prompted to tap a U2F/FIDO security key that is enrolled in
+.Ar cryptfile .
+The supported formats are:
+.Bl -tag -width base64
+.It none
+Don't actually print anything \(em only verify that the U2F/FIDO
+security key is enrolled.
+.It raw
+Print the raw bytes of the stored secret.
+.It base64
+Print the stored secret encoded in base64.
+.El
+.Pp
+The
+.Fl F
+option is mandatory \(em that way, you won't inadvertently either screw
+up your terminal or feed base64 data into a program that expects raw
+bytes.
+.El
+.Ss Security properties
+.Bl -bullet
+.It
+An adversary without the cryptfile can't recover the stored secret,
+even if they have all of the enrolled U2F/FIDO devices.
+.It
+An adversary without at least one of the U2F/FIDO devices enrolled in a
+cryptfile can't recover the secret stored in it, even if they have the
+cryptfile.
+.It
+An adversary without at least one of the U2F/FIDO devices enrolled in a
+cryptfile can't fool
+.Cm fidocrypt get
+into passing with it.
+.El
+.Pp
+N.B.:
+.Nm
+.Em does not
+defend against a compromised host while cryptfile is being decrypted,
+and can't defend against any attacker who has access to the stored
+secret in the host's memory once decrypted.
+.Pp
+.Nm
+also doesn't defend against a poorly designed U2F/FIDO device that
+exposes the public key in the credential id.
+Fortunately, credential ids are almost always either ciphertext
+themselves, encrypted with a secret key stored on the U2F/FIDO device,
+or a random input to a pseudorandom function under a secret key stored
+on the U2F/FIDO device.
+.Sh ENVIRONMENT
+.Bl -tag -width FIDOCRYPT_USERNAME
+.It Ev FIDOCRYPT_RPID
+Relying party id.
+Overridden by the
+.Fl r
+option.
+.It Ev FIDOCRYPT_USERID
+User id for
+.Cm fidocrypt enroll .
+Overridden by the
+.Fl u
+option.
+.It Ev FIDOCRYPT_USERNAME
+User name for
+.Cm fidocrypt enroll .
+Overridden by the
+.Fl N
+option.
+.El
+.Sh EXAMPLES
+.Bd -literal
+% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
+	example.crypt
+tap key to enroll; waiting...
+% ./fidocrypt -r fidocrypt.example.com get example.crypt
+fidocrypt: specify an output format (-F)
+Usage: fidocrypt get -F <format> <cryptfile>
+% ./fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
+tap key; waiting...
+yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
+% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
+	example.crypt
+tap a key that's already enrolled; waiting...
+tap key to enroll; waiting...
+% ./fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
+tap key; waiting...
+yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
+.Ed
+.Sh DIAGNOSTICS
+.Ex -std
+.Bl -diag
+.It "fidocrypt: no matching devices found"
+None of the available U2F/FIDO security keys is enrolled in the
+cryptfile when trying to retrieve the secret from it, or all of the
+available U2F/FIDO security keys are already enrolled when trying to
+enroll a new one.
+.El
+.Sh SEE ALSO
+.Xr pamu2fcfg 1
+.Rs
+.%A Joseph Birr-Pixton
+.%T Abusing U2F to 'store' keys
+.%D 2015-11-23
+.%U https://jbp.io/2015/11/23/abusing-u2f-to-store-keys.html
+.Re
+.Rs
+.%A Rolf Lindemann
+.%A Vijay Bharadwaj
+.%A Alexei Czeskis
+.%A Michael B. Jones
+.%A Jeff Hodges
+.%A Akshay Kumar
+.%A Christiaan Brand
+.%A Johan Verrept
+.%A Jakob Ehrensv\(:ard
+.%T Client To Authenticator Protocol
+.%D 2017-09-27
+.%Q FIDO Alliance
+.%U https://fidoalliance.org/specs/fido-v2.0-ps-20170927/fido-client-to-authenticator-protocol-v2.0-ps-20170927.html
+.Re
+.Rs
+.%A Dirk Balfanz
+.%A Alexei Czeskis
+.%A Jeff Hodges
+.%A J.C. Jones
+.%A Michael B. Jones
+.%A Akshay Kumar
+.%A Angelo Liao
+.%A Rolf Lindemann
+.%A Emil Lundberg
+.%T Web Authentication: An API for accessing Public Key Credentials Level 1
+.%D 2019-03-04
+.%Q World Wide Web Consortium
+.%U https://www.w3.org/TR/webauthn-1/
+.Re
+.Sh CAVEATS
+.Nm
+works only with ECDSA over NIST P-256.
+It cannot be made to work with Ed25519.
+(Fortunately, essentially all U2F/FIDO devices on the market support
+ECDSA over NIST P-256.)
+.Pp
+.Nm
+limits cryptfiles to be 1048576 bytes long, including metadata,
+credential ids, and ciphertexts.
+Usually, with a 32-byte secret, each U2F/FIDO security key requires
+under 200 bytes of storage in the file.
+.Nm
+is not meant for enrolling very large numbers of U2F/FIDO security keys
+\(em you are expected to use a primary key and a handful of backups
+stored in safe places.
+.Sh BUGS
+User ids and relying party ids can't have NUL bytes.
+.Pp
+Cryptfiles don't store nicknames for U2F/FIDO security keys, and
+.Nm
+doesn't support unenrolling keys.
