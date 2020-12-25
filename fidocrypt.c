@@ -65,9 +65,14 @@ static struct state {
 	const char		*user_id;
 	const char		*user_name;
 
+	struct {
+		const void		*ptr;
+		size_t			nbytes;
+	}			*creds;
+	size_t			ncreds;
+
 	unsigned		pending;
 	const fido_dev_info_t	*devlist;
-	const cbor_item_t	*cryptmap;
 
 	union {			/* XXX */
 		fido_cred_t		*cred;
@@ -240,7 +245,6 @@ enroll_thread(void *cookie)
 	uint8_t challenge[32];
 	const char *path;
 	fido_cred_t *cred = NULL;
-	const struct cbor_pair *entry;
 	unsigned j;
 	int error, ok = 0;
 
@@ -319,18 +323,11 @@ enroll_thread(void *cookie)
 	}
 
 	/* Specify the excluded credential ids, if any.  */
-	if (S->cryptmap) {
-		entry = cbor_map_handle(S->cryptmap);
-		for (j = cbor_map_size(S->cryptmap); j --> 0;) {
-			const void *credential_id =
-			    cbor_bytestring_handle(entry[j].key);
-			size_t ncredential_id =
-			    cbor_bytestring_length(entry[j].key);
-			if ((error = fido_cred_exclude(cred,
-				    credential_id, ncredential_id)) != FIDO_OK)
-				errx(1, "fido_cred_exclude: %s",
-				    fido_strerr(error));
-		}
+	for (j = 0; j < S->ncreds; j++) {
+		if ((error = fido_cred_exclude(cred, S->creds[j].ptr,
+			    S->creds[j].nbytes)) != FIDO_OK)
+			errx(1, "fido_cred_exclude: %s",
+			    fido_strerr(error));
 	}
 
 	DBG("try %s vendor=%04hx (%s) product=%04hx (%s)\n",
@@ -398,7 +395,6 @@ get_thread(void *cookie)
 	uint8_t challenge[32];
 	const char *path;
 	fido_assert_t *assert = NULL;
-	const struct cbor_pair *entry;
 	unsigned j;
 	int error, ok = 0;
 
@@ -465,13 +461,9 @@ get_thread(void *cookie)
 		    fido_strerr(error));
 
 	/* Specify the allowed credential ids.  */
-	entry = cbor_map_handle(S->cryptmap);
-	for (j = cbor_map_size(S->cryptmap); j --> 0;) {
-		const void *credential_id =
-		    cbor_bytestring_handle(entry[j].key);
-		size_t ncredential_id = cbor_bytestring_length(entry[j].key);
-		if ((error = fido_assert_allow_cred(assert, credential_id,
-			    ncredential_id)) != FIDO_OK)
+	for (j = 0; j < S->ncreds; j++) {
+		if ((error = fido_assert_allow_cred(assert, S->creds[j].ptr,
+			    S->creds[j].nbytes)) != FIDO_OK)
 			errx(1, "fido_assert_allow_cred: %s",
 			    fido_strerr(error));
 	}
@@ -518,7 +510,7 @@ out:	if (!ok) {
 }
 
 static void *
-run_thread_per_dev(void *(*start)(void *), const cbor_item_t *cryptmap)
+run_thread_per_dev(void *(*start)(void *))
 {
 	fido_dev_info_t *devlist = NULL;
 	size_t ndevs = 0, maxndevs = __arraycount(S->thread);
@@ -560,7 +552,6 @@ run_thread_per_dev(void *(*start)(void *), const cbor_item_t *cryptmap)
 	/* Set up the global state.  */
 	S->pending = ndevs;
 	S->devlist = devlist;
-	S->cryptmap = cryptmap;
 	S->result = NULL;
 	S->done = false;
 
@@ -634,6 +625,24 @@ run_thread_per_dev(void *(*start)(void *), const cbor_item_t *cryptmap)
 	fido_dev_info_free(&devlist, ndevs);
 
 	return S->result;
+}
+
+static void
+set_credentials(const cbor_item_t *map)
+{
+	const struct cbor_pair *entry;
+	unsigned i;
+
+	entry = cbor_map_handle(map);
+	S->ncreds = cbor_map_size(map);
+	if ((S->creds = calloc(S->ncreds, sizeof(S->creds[0]))) == NULL)
+		err(1, "malloc");
+	for (i = S->ncreds; i --> 0;) {
+		assert(cbor_isa_bytestring(entry[i].key));
+		assert(cbor_bytestring_is_definite(entry[i].key));
+		S->creds[i].ptr = cbor_bytestring_handle(entry[i].key);
+		S->creds[i].nbytes = cbor_bytestring_length(entry[i].key);
+	}
 }
 
 static int
@@ -927,7 +936,7 @@ do_get(size_t *nsecretp, const cbor_item_t *map)
 	int error;
 
 	/* Get an assertion from one of the devices.  */
-	assert = run_thread_per_dev(get_thread, map);
+	assert = run_thread_per_dev(get_thread);
 
 	/* Verify that there is at least one assertion.  */
 	/* XXX What to do about more than one assertion?  */
@@ -1064,6 +1073,14 @@ cmd_enroll(int argc, char **argv)
 		errc(1, error, "read cryptfile");
 
 	/*
+	 * Set the credentials, if specified -- these may be used both
+	 * to allow when retrieving the stored secret and to exclude
+	 * when enrolling a new device.
+	 */
+	if (omap)
+		set_credentials(omap);
+
+	/*
 	 * Determine the secret.
 	 * - If specified, use that.
 	 * - If already stored, derive it from user interaction.
@@ -1116,7 +1133,7 @@ cmd_enroll(int argc, char **argv)
 
 	/* Get a credential from one of the devices.  */
 	MSG("tap key to enroll; waiting...\n");
-	cred = run_thread_per_dev(enroll_thread, omap);
+	cred = run_thread_per_dev(enroll_thread);
 
 	/* Get the credential id.  */
 	if ((credential_id = fido_cred_id_ptr(cred)) == NULL ||
@@ -1239,6 +1256,9 @@ cmd_get(int argc, char **argv)
 	/* Read the cryptfile.  */
 	if ((error = readcrypt(&map, cryptfile)) != 0)
 		errc(1, error, "readcrypt");
+
+	/* Set the allowed credentials.  */
+	set_credentials(map);
 
 	/* Get the secret.  */
 	MSG("tap key; waiting...\n");
