@@ -893,6 +893,63 @@ do_get(size_t *nsecretp, sqlite3 *db)
 }
 
 static void
+rename_nickname(sqlite3 *db, const char *nickname, const char *newname)
+{
+	sqlite3_stmt *stmt = NULL;
+	int error;
+
+	if (sqlite3_prepare_v2(db,
+		"UPDATE entry SET nickname = ? WHERE nickname = ?", -1, &stmt,
+		NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_text(stmt, 1, newname, (int)strlen(newname),
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind 1: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_text(stmt, 2, nickname, (int)strlen(nickname),
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind 2: %s", __func__,
+		    sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "DELETE unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
+}
+
+static void
+rename_id(sqlite3 *db, int64_t id, const char *newname)
+{
+	sqlite3_stmt *stmt = NULL;
+	int error;
+
+	if (sqlite3_prepare_v2(db,
+		"UPDATE entry SET nickname = ? WHERE id = ?", -1, &stmt,
+		NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_text(stmt, 1, newname, (int)strlen(newname),
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind 1: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_int64(stmt, 2, id) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind 2: %s", __func__,
+		    sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "DELETE unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
+}
+
+static void
 delete_nickname(sqlite3 *db, const char *nickname)
 {
 	sqlite3_stmt *stmt = NULL;
@@ -1351,6 +1408,106 @@ cmd_list(int argc, char **argv)
 }
 
 static void __dead
+usage_rename(void)
+{
+
+	fprintf(stderr,
+	    "Usage: %s rename [-N <id>] [-n <nickname>] <cryptfile>"
+	    " <newname>\n",
+	    getprogname());
+	exit(1);
+}
+
+static void
+cmd_rename(int argc, char **argv)
+{
+	long long id = -1;
+	const char *nickname = NULL;
+	const char *cryptfile = NULL;
+	const char *newname = NULL;
+	sqlite3 *db = NULL;
+	int nchanges;
+	int ch, error = 0;
+
+	/* Parse arguments.  */
+	while ((ch = getopt(argc, argv, "hi:n:")) != -1) {
+		switch (ch) {
+		case 'i': {
+			char *end;
+
+			if (id != -1 || nickname) {
+				warnx("specify only one id or nickname");
+				error = 1;
+				break;
+			}
+			errno = 0;
+			id = strtoll(optarg, &end, 0);
+			if (end == optarg || *end != '\0' || errno == ERANGE) {
+				warnx("invalid id");
+				error = 1;
+				break;
+			}
+			break;
+		}
+		case 'n':
+			if (id != -1 || nickname) {
+				warnx("specify only one id or nickname");
+				error = 1;
+				break;
+			}
+			nickname = optarg;
+			if (strlen(nickname) > INT_MAX) {
+				warnx("excessive nickname length: %zu",
+				    strlen(nickname));
+				error = 1;
+				break;
+			}
+			break;
+		case '?':
+		case 'h':
+		default:
+			usage_rename();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+	if (argc != 2)
+		usage_rename();
+	cryptfile = *argv++; argc--;
+	newname = *argv++; argc--;
+
+	/* Verify we have all the arguments we need.  */
+	if (id == -1 && nickname == NULL) {
+		warnx("specify an id number (-i) or nickname (-n)");
+		error = 1;
+	}
+
+	/* Stop and report usage errors if any.  */
+	if (error)
+		usage_rename();
+
+	/* Open the cryptfile read/write, or fail if it doesn't exist.  */
+	db = opencrypt(cryptfile, SQLITE_OPEN_READWRITE);
+
+	/* Rename the specified credential.  */
+	if (nickname)
+		rename_nickname(db, nickname, newname);
+	else
+		rename_id(db, id, newname);
+
+	/* Verify that we actually deleted one record.  */
+	if ((nchanges = sqlite3_changes(db)) != 1) {
+		if (nchanges == 0)
+			errx(1, "no such key");
+		else
+			errx(1, "deleted more than expected");
+	}
+
+	/* Success!  */
+	closecrypt(db);
+}
+
+static void __dead
 usage_unenroll(void)
 {
 
@@ -1461,6 +1618,8 @@ usage(void)
 	    getprogname());
 	fprintf(stderr, "       %s list [<options>] <cryptfile>\n",
 	    getprogname());
+	fprintf(stderr, "       %s rename [<options>] <cryptfile> <newname>\n",
+	    getprogname());
 	fprintf(stderr, "       %s unenroll [<options>] <cryptfile>\n",
 	    getprogname());
 	exit(1);
@@ -1552,6 +1711,8 @@ main(int argc, char **argv)
 		cmd_get(argc, argv);
 	else if (strcmp(argv[0], "list") == 0)
 		cmd_list(argc, argv);
+	else if (strcmp(argv[0], "rename") == 0)
+		cmd_rename(argc, argv);
 	else if (strcmp(argv[0], "unenroll") == 0)
 		cmd_unenroll(argc, argv);
 	else {
