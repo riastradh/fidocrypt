@@ -37,7 +37,6 @@ check: .PHONY
 #
 SRCS_fidocrypt = \
 	assert_decrypt.c \
-	crc.c \
 	cred_encrypt.c \
 	dae.c \
 	es256_encode.c \
