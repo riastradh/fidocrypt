@@ -43,7 +43,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <vis.h>
 
 #include <fido.h>
 #include <openssl/crypto.h>
@@ -159,6 +158,73 @@ out:	if (bio_b64)
 	if (bio_file)
 		BIO_free(bio_file);
 	return ok;
+}
+
+#define	UTF8_ACCEPT	0
+#define	UTF8_REJECT	96
+
+typedef unsigned long	utf8_class_t;
+typedef unsigned long	utf8_state_t;
+typedef uint32_t	unicodept_t;
+
+static uint8_t utf8_classtab[] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8, 9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+   11,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 7,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
+};
+
+static uint8_t utf8_statetab[] = {
+     0,96,12,36,48,84,72,60,96,96,96,24, 96, 0,96,96,96,96,96,96, 0, 0,96,96,
+    96,12,96,96,96,96,96,96,96,96,96,96, 96,12,96,96,96,96,96,96,12,12,96,96,
+    96,96,96,96,96,96,96,96,12,12,96,96, 96,36,96,96,96,96,96,96,96,36,96,96,
+    96,36,96,96,96,96,96,96,36,36,96,96, 96,96,96,96,96,96,96,96,36,96,96,96,
+    96,96,96,96,96,96,96,96,96,96,96,96,
+};
+
+static utf8_state_t
+utf8_decode_step(utf8_state_t state, uint8_t octet, unicodept_t *cpp)
+{
+	const utf8_class_t class = utf8_classtab[octet];
+
+	*cpp = (state == UTF8_ACCEPT
+	    ? (octet & (0xff >> class))
+	    : ((octet & 0x3f) | (*cpp << 6)));
+
+	return utf8_statetab[state + class];
+}
+
+static bool
+nickname_ok(const char *nickname)
+{
+	size_t len = strlen(nickname);
+	utf8_state_t state = UTF8_ACCEPT;
+	unicodept_t cp;
+
+	if (len > 128)
+		return false;
+	while (len --> 0) {
+		state = utf8_decode_step(state, *nickname++, &cp);
+		if (state == UTF8_REJECT)
+			return false;
+		if (state == UTF8_ACCEPT) {
+			/* Reject c0, U+0000 through U+001f.  */
+			if (cp <= 0x1f)
+				return false;
+			/*
+			 * Reject U+007f (Delete) and c1, U+0080
+			 * through U+009f.
+			 */
+			if (0x7f <= cp && cp <= 0x9f)
+				return false;
+		}
+	}
+
+	return state == UTF8_ACCEPT;
 }
 
 static void
@@ -1086,9 +1152,8 @@ cmd_enroll(int argc, char **argv)
 				break;
 			}
 			nickname = optarg;
-			if (strlen(nickname) > INT_MAX) {
-				warnx("excessive nickname length: %zu",
-				    strlen(nickname));
+			if (!nickname_ok(nickname)) {
+				warnx("invalid nickname");
 				error = 1;
 				break;
 			}
@@ -1425,27 +1490,17 @@ cmd_list(int argc, char **argv)
 	while ((error = sqlite3_step(stmt)) == SQLITE_ROW) {
 		int64_t id;
 		const char *nickname;
-		char *vnickname = NULL;
 
 		/*
-		 * Print the id, and then a shell-safe nickname so that
-		 * the user can copy & paste it into a shell command
-		 * line.
-		 *
-		 * XXX Derp -- this doesn't actually work; for some
-		 * reason it fails to print multibyte characters as
-		 * advertised, and it also doesn't actually match shell
-		 * escape syntax so the above copypasta is no good.
+		 * Print id and nickname.  Nicknames are not allowed to
+		 * have line breaks or any other control characters, so
+		 * this format is reasonably machine-parseable and
+		 * reasonably safe for terminal output.
 		 */
 		id = sqlite3_column_int64(stmt, 0);
 		nickname = (const char *)sqlite3_column_text(stmt, 1);
-		if (nickname) {
-			if (stravis(&vnickname, nickname, VIS_META) == -1)
-				err(1, "stravis");
-		}
 		printf("%"PRId64"%s%s\n", id, nickname ? " " : "",
-		    nickname ? vnickname : "");
-		free(vnickname);
+		    nickname ? nickname : "");
 	}
 	if (error != SQLITE_DONE)
 		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
@@ -1506,9 +1561,8 @@ cmd_rename(int argc, char **argv)
 				break;
 			}
 			nickname = optarg;
-			if (strlen(nickname) > INT_MAX) {
-				warnx("excessive nickname length: %zu",
-				    strlen(nickname));
+			if (!nickname_ok(nickname)) {
+				warnx("invalid nickname");
 				error = 1;
 				break;
 			}
@@ -1526,9 +1580,9 @@ cmd_rename(int argc, char **argv)
 	cryptfile = *argv++; argc--;
 	newname = *argv++; argc--;
 
-	/* Verify the newname is going to work with sqlite3.  */
-	if (strlen(newname) > INT_MAX) {
-		warnx("excessive new nickname length: %zu", strlen(newname));
+	/* Verify the newname is OK.  */
+	if (!nickname_ok(newname)) {
+		warnx("invalid nickname");
 		error = 1;
 	}
 
@@ -1610,9 +1664,8 @@ cmd_unenroll(int argc, char **argv)
 				break;
 			}
 			nickname = optarg;
-			if (strlen(nickname) > INT_MAX) {
-				warnx("excessive nickname length: %zu",
-				    strlen(nickname));
+			if (!nickname_ok(nickname)) {
+				warnx("invalid nickname");
 				error = 1;
 				break;
 			}

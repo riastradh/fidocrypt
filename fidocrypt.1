@@ -155,6 +155,11 @@ lets you specify a nickname for later display with
 .Cm fidocrypt list
 or use with
 .Cm fidocrypt unenroll .
+If specified,
+.Ar nickname
+must be a UTF-8 string at most 128 bytes long with no control
+characters (Unicode general category Cc, code points U+0000 through
+U+001f and U+007f through U+009f).
 .Pp
 The
 .Fl N Ar username
