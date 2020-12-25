@@ -42,15 +42,19 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <cbor.h>
 #include <fido.h>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
+#include <sqlite3.h>
 
 #include "assert_decrypt.h"
-#include "crc.h"
 #include "cred_encrypt.h"
 #include "fidocrypt.h"
+
+static const char *schema[] = {
+#include "fidocrypt1.i"
+};
+static unsigned oldest_compatible_version = 1;
 
 static struct state {
 	pthread_mutex_t		mtx;
@@ -60,13 +64,14 @@ static struct state {
 	bool			quiet;
 	bool			verbose;
 	bool			debug;
+	bool			experimental;
 
 	const char		*rp_id;
 	const char		*user_id;
 	const char		*user_name;
 
 	struct {
-		const void		*ptr;
+		void			*ptr;
 		size_t			nbytes;
 	}			*creds;
 	size_t			ncreds;
@@ -627,312 +632,195 @@ run_thread_per_dev(void *(*start)(void *))
 	return S->result;
 }
 
-static void
-set_credentials(const cbor_item_t *map)
-{
-	const struct cbor_pair *entry;
-	unsigned i;
-
-	entry = cbor_map_handle(map);
-	S->ncreds = cbor_map_size(map);
-	if ((S->creds = calloc(S->ncreds, sizeof(S->creds[0]))) == NULL)
-		err(1, "malloc");
-	for (i = S->ncreds; i --> 0;) {
-		assert(cbor_isa_bytestring(entry[i].key));
-		assert(cbor_bytestring_is_definite(entry[i].key));
-		S->creds[i].ptr = cbor_bytestring_handle(entry[i].key);
-		S->creds[i].nbytes = cbor_bytestring_length(entry[i].key);
-	}
-}
-
 static int
-entry_compare(const void *va, const void *vb)
+db_exec1int(sqlite3 *db, const char *q, int64_t *ret)
 {
-	const struct cbor_pair *a = va;
-	const struct cbor_pair *b = vb;
-	const void *ap, *bp;
-	size_t na, nb, n;
-
-	assert(cbor_isa_bytestring(a->key));
-	assert(cbor_isa_bytestring(b->key));
-	assert(cbor_bytestring_is_definite(a->key));
-	assert(cbor_bytestring_is_definite(b->key));
-
-	ap = cbor_bytestring_handle(a->key);
-	bp = cbor_bytestring_handle(b->key);
-	na = cbor_bytestring_length(a->key);
-	nb = cbor_bytestring_length(b->key);
-	n = na < nb ? na : nb;
-
-	/*
-	 * RFC 7049, Sec. 3.9 Canonical CBOR: `If two keys have
-	 * different lengths, the shorter one sorts earlier.  If two
-	 * keys have the same length, the one with the lower value in
-	 * (byte-wise) lexical order sorts earlier.'
-	 *
-	 * XXX Make sure we don't have duplicate keys.
-	 */
-	if (na < nb)
-		return -1;
-	if (na > nb)
-		return +1;
-	return memcmp(ap, bp, n);
-}
-
-static void
-sort_map(cbor_item_t *map)
-{
-	struct cbor_pair *entry = cbor_map_handle(map);
-	size_t nentry = cbor_map_size(map);
-
-	qsort(entry, nentry, sizeof(*entry), entry_compare);
-}
-
-static int
-writecrypt(const cbor_item_t *map, const char *path, int flag)
-{
-	uint8_t *mapbuf = NULL;
-	size_t nmap = 0, nmapbuf = 0;
-	char tmp[PATH_MAX];
-	FILE *fp = NULL;
-	const char header[8] = "FIDOCRPT";
-	uint32_t crc = 0;
-	uint8_t crcbuf[4];
+	sqlite3_stmt *stmt = NULL;
 	int error;
 
-	/* Encode the map.  */
-	if ((nmap = cbor_serialize_alloc(map, &mapbuf, &nmapbuf)) == 0) {
-		error = ENOMEM;
+	if ((error = sqlite3_prepare_v2(db, q, -1, &stmt, NULL)) != SQLITE_OK)
 		goto out;
-	}
+	if ((error = sqlite3_step(stmt)) != SQLITE_ROW)
+		goto out;
 
-	/* Fail early if it would be too large.  */
-	if (nmap > 1024*1024 - sizeof(header) - sizeof(crcbuf))
-		errc(1, EFBIG, "setec astronomy");
+	/* Success!  */
+	*ret = sqlite3_column_int64(stmt, 0);
+	error = 0;
+
+out:	if (stmt) {
+		int error1 = sqlite3_finalize(stmt);
+		error = error ? error : error1;
+	}
+	return error;
+}
+
+static sqlite3 *
+opencrypt(const char *path, int flags)
+{
+	sqlite3 *db = NULL;
+	int64_t appid, ver;
+	unsigned i;
+	char *errmsg;
+	int error;
+
+	/* Open the database.  */
+	if ((error = sqlite3_open_v2(path, &db, flags, NULL)) != SQLITE_OK)
+		errx(1, "open cryptfile: %s",
+		    db ? sqlite3_errmsg(db) : sqlite3_errstr(error));
+
+	/* Get the application id and user schema version.  */
+	if (db_exec1int(db, "PRAGMA application_id", &appid) != SQLITE_OK)
+		errx(1, "sqlite3 app id: %s", sqlite3_errmsg(db));
+	if (db_exec1int(db, "PRAGMA user_version", &ver) != SQLITE_OK)
+		errx(1, "sqlite3 user version: %s", sqlite3_errmsg(db));
 
 	/*
-	 * If the path is `-', use stdout; otherwise, start writing to a
-	 * temporary file, truncating it if it already exists or
-	 * creating it if not.
+	 * Verify the application id -- it will be 0 if this is a newly
+	 * created database; otherwise it will be `FCRT'.
 	 */
-	if (strcmp(path, "-") == 0) {
-		fp = stdout;
+	if (appid != 0 && appid != 0x46435254)
+		errx(1, "invalid cryptfile (appid=0x%"PRIx64")", appid);
+
+	/*
+	 * If the version is zero. instantiate the schema.  Otherwise,
+	 * verify it's not too old, too new, or too experimental.  Do
+	 * each schema migration in its own immediate transaction --
+	 * exclude other writers but not other readers.
+	 */
+	if (ver == 0) {
+		for (i = 0; i < __arraycount(schema); i++) {
+			if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL,
+				&errmsg) != SQLITE_OK)
+				errx(1, "sqlite3 BEGIN IMMEDIATE: %s", errmsg);
+			if (sqlite3_exec(db, schema[i], NULL, NULL, &errmsg)
+			    != SQLITE_OK)
+				errx(1, "sqlite3 schema %u: %s", i, errmsg);
+			if (sqlite3_exec(db, "COMMIT", NULL, NULL, &errmsg)
+			    != SQLITE_OK)
+				errx(1, "sqlite3 COMMIT: %s", errmsg);
+		}
 	} else {
-		if ((size_t)snprintf(tmp, sizeof(tmp), "%s.tmp", path)
-		    >= sizeof(tmp)) {
-			error = ENAMETOOLONG;
-			goto out;
+		if ((uint64_t)abs(ver) > __arraycount(schema))
+			errx(1, "unknown cryptfile format (version=%"PRId64")",
+			    ver);
+		if ((uint64_t)abs(ver) < oldest_compatible_version)
+			errx(1, "schema too old (version=%"PRId64")", ver);
+		if (ver < 0) {
+			if (S->experimental)
+				warnx("WARNING: experimental cryptfile");
+			else
+				errx(1, "experimental cryptfile"
+				    " (set -E to force)");
 		}
-		if ((fp = fopen(tmp, "wb")) == NULL) {
-			error = errno;
-			goto out;
-		}
-	}
-
-	/* Write the header.  */
-	if (fwrite(header, sizeof(header), 1, fp) != 1) {
-		error = errno;
-		goto out;
-	}
-	crc = crc32(header, sizeof(header), crc);
-
-	/* Write the map.  */
-	if (fwrite(mapbuf, nmap, 1, fp) != 1) {
-		error = errno;
-		goto out;
-	}
-	crc = crc32(mapbuf, nmap, crc);
-
-	/* Encode and write the 32-bit CRC.  */
-	le32enc(crcbuf, crc);
-	if (fwrite(crcbuf, sizeof(crcbuf), 1, fp) != 1) {
-		error = errno;
-		goto out;
 	}
 
 	/*
-	 * Make sure it has hit disk before we let the caller proceed;
-	 * otherwise the caller might stash some important data with a
-	 * key that has been lost if the credential file is eaten by a
-	 * power failure.
+	 * If we're opening for read/write, start an immediate
+	 * transaction -- allows concurrent reads, but rejects
+	 * concurrent writes, and fails immediately if there are
+	 * concurrent writes already ongoing.
+	 *
+	 * Otherwise, if we're opening read-only, just start a deferred
+	 * transaction so the state doesn't change under us while we
+	 * work.
 	 */
-	if (fsync_range(fileno(fp), FFILESYNC|FDISKSYNC, 0, 0) == -1) {
-		error = errno;
-		goto out;
-	}
-
-	/* Rename the file to its temporary path, if not stdout.  */
-	if (strcmp(path, "-") != 0) {
-		if (flag & O_EXCL) {
-			if (link(tmp, path) == -1 ||
-			    unlink(tmp) == -1) {
-				error = errno;
-				goto out;
-			}
-		} else {
-			if (rename(tmp, path) == -1) {
-				error = errno;
-				goto out;
-			}
-		}
+	if ((flags & SQLITE_OPEN_READWRITE) == SQLITE_OPEN_READWRITE) {
+		if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, &errmsg)
+		    != SQLITE_OK)
+			errx(1, "%s: sqlite3 BEGIN IMMEDIATE: %s", __func__,
+			    sqlite3_errmsg(db));
+	} else {
+		if (sqlite3_exec(db, "BEGIN", NULL, NULL, &errmsg)
+		    != SQLITE_OK)
+			errx(1, "%s: sqlite3 BEGIN: %s", __func__,
+			    sqlite3_errmsg(db));
 	}
 
 	/* Success!  */
-	error = 0;
-
-out:	if (fp && strcmp(path, "-") != 0)
-		fclose(fp);
-	if (nmapbuf) {
-		OPENSSL_cleanse(mapbuf, nmapbuf);
-		free(mapbuf);
-	}
-	return error;
+	return db;
 }
 
-static int
-readcrypt(cbor_item_t **mapp, const char *path)
+static void
+closecrypt(sqlite3 *db)
 {
-	FILE *fp = NULL;
-	struct stat st;
-	char header[8];
-	void *blob = NULL;
-	size_t nblob = 0;
-	uint32_t crc = 0;
-	uint8_t crcbuf[4];
-	cbor_item_t *map = NULL;
-	struct cbor_load_result load;
-	const struct cbor_pair *entry;
+	char *errmsg;
+
+	/* Commit the transaction.  */
+	if (sqlite3_exec(db, "COMMIT", NULL, NULL, &errmsg) != SQLITE_OK)
+		errx(1, "%s: sqlite3 COMMIT: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Finally, close the database.  */
+	if (sqlite3_close(db) != SQLITE_OK)
+		errx(1, "close cryptfile: %s", sqlite3_errmsg(db));
+}
+
+static void
+set_credentials(sqlite3 *db)
+{
+	int64_t n;
+	sqlite3_stmt *stmt;
 	unsigned i;
 	int error;
 
-	/* If the path is `-', use stdin; otherwise, open for reading.  */
-	if (strcmp(path, "-") == 0) {
-		fp = stdin;
-	} else {
-		if ((fp = fopen(path, "rb")) == NULL) {
-			error = errno;
-			goto out;
+	/* Determine how many entries there are.  */
+	if (db_exec1int(db, "SELECT count(*) FROM entry", &n) != SQLITE_OK)
+		errx(1, "count credentials: %s", sqlite3_errmsg(db));
+	if (n < 0)
+		errx(1, "negative credential count: %"PRId64, n);
+	if ((uint64_t)n > SIZE_MAX)
+		errx(1, "excessive credential count: %"PRId64, n);
+
+	/* Allocate an array of that many credential ids.  */
+	S->ncreds = (size_t)n;
+	if ((S->creds = calloc(S->ncreds, sizeof(S->creds[0]))) == NULL)
+		err(1, "malloc");
+
+	/* Fill up the array.  */
+	if (sqlite3_prepare_v2(db, "SELECT credential_id FROM entry", -1,
+		&stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	for (i = 0; i < S->ncreds; i++) {
+		const void *ptr;
+		int nbytes;
+
+		if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
+			if (error == SQLITE_DONE)
+				errx(1, "database corrupt");
+			errx(1, "list credentials: %s", sqlite3_errmsg(db));
 		}
+		if ((ptr = sqlite3_column_blob(stmt, 0)) == NULL)
+			errx(1, "%s: missing column 0, row %u", __func__, i);
+		if ((nbytes = sqlite3_column_bytes(stmt, 0)) <= 0)
+			errx(1, "%s: bogus column 0, row %u: %d", __func__, i,
+			    nbytes);
+		S->creds[i].nbytes = (size_t)nbytes;
+		if ((S->creds[i].ptr = malloc(S->creds[i].nbytes)) == NULL)
+			err(1, "malloc");
+		memcpy(S->creds[i].ptr, ptr, S->creds[i].nbytes);
 	}
-
-	/* Determine the file length, if we can.  */
-	if (fstat(fileno(fp), &st) == -1) {
-		error = errno;
-		goto out;
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "excessive credentials");
+		errx(1, "list credentials done: %s", sqlite3_errmsg(db));
 	}
-	if (S_ISREG(st.st_mode)) {
-		if ((size_t)st.st_size < sizeof(header) + sizeof(crcbuf)) {
-			error = EFTYPE;
-			goto out;
-		}
-		if (st.st_size > 1024*1024) {
-			error = EFBIG;
-			goto out;
-		}
-		nblob = st.st_size - sizeof(header) - sizeof(crcbuf);
-		blob = malloc(nblob);
-		if (blob == NULL) {
-			error = errno;
-			goto out;
-		}
-	} else if (S_ISFIFO(st.st_mode)) {
-		/*
-		 * XXX read incrementally and grow buffer up to a
-		 * reasonable limit
-		 */
-		error = EFTYPE;
-		goto out;
-	} else {
-		/*
-		 * Devices, directories, symlinks, and sockets are not
-		 * reasonable.
-		 */
-		error = EFTYPE;
-		goto out;
-	}
-
-	/* Read and verify the FIDOCRPT header.  */
-	if (fread(header, sizeof(header), 1, fp) != 1) {
-		error = errno;
-		goto out;
-	}
-	crc = crc32(header, sizeof(header), crc);
-	if (memcmp(header, "FIDOCRPT", 8) != 0) {
-		error = EFTYPE;
-		goto out;
-	}
-
-	/* Read the blob.  */
-	if (fread(blob, nblob, 1, fp) != 1) {
-		error = errno;
-		goto out;
-	}
-	crc = crc32(blob, nblob, crc);
-
-	/* Read the CRC footer.  */
-	if (fread(crcbuf, sizeof(crcbuf), 1, fp) != 1) {
-		error = errno;
-		goto out;
-	}
-	crc = crc32(crcbuf, sizeof(crcbuf), crc);
-
-	/* Check the CRC.  */
-	if (crc != UINT32_C(0x2144df1c)) {
-		error = EBADMSG;
-		goto out;
-	}
-
-	/* Done with the file now.  */
-	if (strcmp(path, "-") != 0) {
-		fclose(fp);
-		fp = NULL;
-	}
-
-	/* Parse the CBOR and verify it's a map.  */
-	if ((map = cbor_load(blob, nblob, &load)) == NULL ||
-	    !cbor_isa_map(map) ||
-	    !cbor_map_is_definite(map)) {
-		error = EBADMSG;
-		goto out;
-	}
-
-	/* Verify that every entry is a bytestring->bytestring.  */
-	for (entry = cbor_map_handle(map), i = cbor_map_size(map); i --> 0;) {
-		if (!cbor_isa_bytestring(entry[i].key) ||
-		    !cbor_bytestring_is_definite(entry[i].key) ||
-		    !cbor_isa_bytestring(entry[i].value) ||
-		    !cbor_bytestring_is_definite(entry[i].value)) {
-			error = EBADMSG;
-			goto out;
-		}
-	}
-
-	/* Success!  Return the map.  */
-	*mapp = map;
-	map = NULL;
-	error = 0;
-
-out:	if (map)
-		cbor_decref(&map);
-	if (blob)
-		free(blob);
-	if (fp && strcmp(path, "-") != 0)
-		fclose(fp);
-	return error;
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
 }
 
 static void *
-do_get(size_t *nsecretp, const cbor_item_t *map)
+do_get(size_t *nsecretp, sqlite3 *db)
 {
 	fido_assert_t *assert = NULL;
 	const void *credential_id;
 	size_t ncredential_id;
-	const struct cbor_pair *entry;
+	sqlite3_stmt *stmt = NULL;
 	const void *ciphertext;
-	size_t nciphertext;
+	int nciphertext;
 	void *secret = NULL;
 	size_t nsecret = 0;
-	unsigned i;
 	int error;
 
 	/* Get an assertion from one of the devices.  */
@@ -947,33 +835,45 @@ do_get(size_t *nsecretp, const cbor_item_t *map)
 	if ((credential_id = fido_assert_id_ptr(assert, 0)) == NULL ||
 	    (ncredential_id = fido_assert_id_len(assert, 0)) == 0)
 		errx(1, "empty credential id");
+	if (ncredential_id > INT_MAX)
+		errx(1, "excessive credential id size: %zu", ncredential_id);
 
 	/* Find the matching ciphertext.  */
-	for (entry = cbor_map_handle(map), i = cbor_map_size(map); i --> 0;) {
-		const void *key = cbor_bytestring_handle(entry[i].key);
-		size_t nkey = cbor_bytestring_length(entry[i].key);
-
-		if (nkey == ncredential_id &&
-		    consttime_memequal(key, credential_id, nkey))
-			goto decrypt;
+	if (sqlite3_prepare_v2(db,
+		"SELECT ciphertext FROM entry WHERE credential_id = ?",
+		-1, &stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_blob(stmt, 1, credential_id, ncredential_id,
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind: %s", __func__, sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
+		if (error == SQLITE_DONE)
+			errx(1, "no matching credential");
+		errx(1, "%s: sqlite3: %s", __func__, sqlite3_errmsg(db));
 	}
-	errx(1, "no matching credential");
+	if ((ciphertext = sqlite3_column_blob(stmt, 0)) == NULL)
+		errx(1, "%s: missing column 0", __func__);
+	if ((nciphertext = sqlite3_column_bytes(stmt, 0)) <= 0)
+		errx(1, "%s: bogus column 0: %d", __func__, nciphertext);
 
-decrypt:
 	/*
 	 * Verify and decrypt the ciphertext using the `key' derived
 	 * from the assertion.
 	 */
-	ciphertext = cbor_bytestring_handle(entry[i].value);
-	nciphertext = cbor_bytestring_length(entry[i].value);
-	if (nciphertext < FIDOCRYPT_OVERHEADBYTES)
+	if ((size_t)nciphertext < FIDOCRYPT_OVERHEADBYTES)
 		errx(1, "corrupt cryptfile");
-	nsecret = nciphertext - FIDOCRYPT_OVERHEADBYTES;
+	nsecret = (size_t)nciphertext - FIDOCRYPT_OVERHEADBYTES;
 	if ((secret = malloc(nsecret)) == NULL)
 		err(1, "malloc");
 	if ((error = fido_assert_decrypt(assert, 0, COSE_ES256, secret,
-		    ciphertext, nciphertext)) != FIDO_OK)
+		    ciphertext, (size_t)nciphertext)) != FIDO_OK)
 		errx(1, "fido_assert_decrypt: %s", fido_strerr(error));
+
+	/* Release the sqlite3 statement.  */
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
 
 	/* Success!  Free the assertion and return the secret.  */
 	fido_assert_free(&assert);
@@ -997,6 +897,7 @@ cmd_enroll(int argc, char **argv)
 {
 	const char *secretfile = NULL;
 	const char *cryptfile = NULL;
+	sqlite3 *db = NULL;
 	uint8_t secretbuf[32], *secret = NULL;
 	size_t nsecret = 0;
 	fido_cred_t *cred = NULL;
@@ -1004,10 +905,7 @@ cmd_enroll(int argc, char **argv)
 	size_t ncredential_id;
 	uint8_t *ciphertext;
 	size_t nciphertext;
-	cbor_item_t *omap = NULL, *nmap = NULL;
-	struct cbor_pair entry1;
-	const struct cbor_pair *entry;
-	unsigned i;
+	sqlite3_stmt *stmt = NULL;
 	int ch, error = 0;
 
 	/* Parse arguments.  */
@@ -1068,17 +966,15 @@ cmd_enroll(int argc, char **argv)
 	/* Prevent read/write/execute by anyone but owner.  */
 	umask(0077);
 
-	/* Read the existing cryptfile, if there is one.  */
-	if ((error = readcrypt(&omap, cryptfile)) != 0 && error != ENOENT)
-		errc(1, error, "read cryptfile");
+	/* Open the cryptfile if there is one, or create it if not.  */
+	db = opencrypt(cryptfile, SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE);
 
 	/*
 	 * Set the credentials, if specified -- these may be used both
 	 * to allow when retrieving the stored secret and to exclude
 	 * when enrolling a new device.
 	 */
-	if (omap)
-		set_credentials(omap);
+	set_credentials(db);
 
 	/*
 	 * Determine the secret.
@@ -1096,7 +992,7 @@ cmd_enroll(int argc, char **argv)
 		 * that the secret stored in the file matches the
 		 * secret specified.
 		 */
-		if (omap)
+		if (S->ncreds)
 			warnx("supplied secret may not match stored secrets");
 
 		/* If secretfile is `-', use stdin; otherwise open it.  */
@@ -1119,10 +1015,10 @@ cmd_enroll(int argc, char **argv)
 		/* If not stdin, close the secret file.  */
 		if (strcmp(secretfile, "-") != 0)
 			fclose(fp);
-	} else if (omap) {
+	} else if (S->ncreds) {
 		/* Existing file -- get the secret from another key.  */
 		MSG("tap a key that's already enrolled; waiting...\n");
-		secret = do_get(&nsecret, omap);
+		secret = do_get(&nsecret, db);
 	} else {
 		/* New file -- generate the secret.  */
 		if (!RAND_bytes(secretbuf, sizeof(secretbuf)))
@@ -1153,43 +1049,56 @@ cmd_enroll(int argc, char **argv)
 		errx(1, "fido_cred_encrypt: %s", fido_strerr(error));
 
 	/*
-	 * Create a CBOR map from credential id to ciphertext,
-	 * incorporating the old map if provided.
+	 * Store the new ciphertext.
 	 */
-	if ((nmap = cbor_new_definite_map(omap ? 1 + cbor_map_size(omap) : 1))
-	    == NULL)
-		errx(1, "cbor_new_definite_map");
-	if (omap) {
-		entry = cbor_map_handle(omap);
-		for (i = cbor_map_size(omap); i --> 0;) {
-			/* XXX check for and reject duplicate credential id */
-			if (!cbor_map_add(nmap, entry[i]))
-				errx(1, "cbor_map_add");
-		}
+
+	/* Prepare a statement.  */
+	if (sqlite3_prepare_v2(db,
+		"INSERT INTO entry(nickname, credential_id, ciphertext)"
+		" VALUES (?, ?, ?)",
+		-1, &stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Set the nickname. (XXX)  */
+	if (sqlite3_bind_null(stmt, 1) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind nickname: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Set the credential id.  */
+	if (ncredential_id > INT_MAX)
+		errx(1, "excessive credential id size: %zu", ncredential_id);
+	if (sqlite3_bind_blob(stmt, 2, credential_id, (int)ncredential_id,
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind credential id: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Set the ciphertext.  */
+	if (nciphertext > INT_MAX)
+		errx(1, "excessive ciphertext size: %zu", nciphertext);
+	if (sqlite3_bind_blob(stmt, 3, ciphertext, (int)nciphertext,
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind ciphertext: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Exceute it.  */
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "INSERT unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
 	}
-	if ((entry1.key = cbor_build_bytestring(credential_id,
-		    ncredential_id)) == NULL ||
-	    (entry1.value = cbor_build_bytestring(ciphertext,
-		    nciphertext)) == NULL)
-		errx(1, "cbor_build_bytestring");
-	if (!cbor_map_add(nmap, entry1))
-		errx(1, "cbor_map_add");
 
-	/* Sort the map to canonicalize it.  */
-	sort_map(nmap);
-
-	/* Write the cryptfile.  */
-	if ((error = writecrypt(nmap, cryptfile, 0)) != 0)
-		errc(1, error, "writecrypt");
+	/* Finalize it.  */
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
 
 	/* Success!  */
-	cbor_decref(&nmap);
-	if (omap)
-		cbor_decref(&omap);
 	fido_cred_free(&cred);
 	OPENSSL_cleanse(secret, nsecret);
 	if (secret != secretbuf)
 		free(secret);
+	closecrypt(db);
 }
 
 static void __dead
@@ -1206,7 +1115,7 @@ cmd_get(int argc, char **argv)
 {
 	enum { UNSPECIFIED, NONE, RAW, BASE64 } format = UNSPECIFIED;
 	const char *cryptfile = NULL;
-	cbor_item_t *map = NULL;
+	sqlite3 *db = NULL;
 	void *secret = NULL;
 	size_t nsecret = 0;
 	int ch, error = 0;
@@ -1253,16 +1162,15 @@ cmd_get(int argc, char **argv)
 	if (error)
 		usage_get();
 
-	/* Read the cryptfile.  */
-	if ((error = readcrypt(&map, cryptfile)) != 0)
-		errc(1, error, "readcrypt");
+	/* Open the cryptfile read-only, or fail if it doesn't exist.  */
+	db = opencrypt(cryptfile, SQLITE_OPEN_READONLY);
 
 	/* Set the allowed credentials.  */
-	set_credentials(map);
+	set_credentials(db);
 
 	/* Get the secret.  */
 	MSG("tap key; waiting...\n");
-	secret = do_get(&nsecret, map);
+	secret = do_get(&nsecret, db);
 
 	/* Print it.  */
 	switch (format) {
@@ -1281,7 +1189,7 @@ cmd_get(int argc, char **argv)
 	}
 
 	/* Success!  */
-	cbor_decref(&map);
+	closecrypt(db);
 	OPENSSL_cleanse(secret, nsecret);
 	free(secret);
 }
@@ -1290,7 +1198,7 @@ static void __dead
 usage(void)
 {
 
-	fprintf(stderr, "Usage: %s [-dqv] [-r <rpid>] <command> <args>...\n",
+	fprintf(stderr, "Usage: %s [-Edqv] [-r <rpid>] <command> <args>...\n",
 	    getprogname());
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Commands:\n");
@@ -1323,8 +1231,11 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "dhqr:v")) != -1) {
+	while ((ch = getopt(argc, argv, "Edhqr:v")) != -1) {
 		switch (ch) {
+		case 'E':
+			S->experimental = true;
+			break;
 		case 'd':
 			S->debug = S->verbose = true;
 			break;

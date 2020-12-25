@@ -7,6 +7,7 @@ LDLIBS = \
 	-lcrypto \
 	-lfido2 \
 	-lpthread \
+	-lsqlite3 \
 	# end of LDLIBS
 
 _CFLAGS = -g -O2 -Wall -Wextra -Werror -std=c99 $(CFLAGS)
@@ -14,6 +15,12 @@ _CPPFLAGS = -MD -MF $*.d -D_POSIX_C_SOURCE=200809L $(CPPFLAGS)
 
 .c.o:
 	$(CC) $(_CFLAGS) $(_CPPFLAGS) -c $<
+
+# SQL -> C include file, for schema definitions
+.SUFFIXES: .sql .i
+.sql.i:
+	sed -e 's,[\"],\\&,g' -e 's,^,",g' -e 's,$$,\\n",g' < $< > $@.tmp \
+	&& mv -f $@.tmp $@
 
 all: .PHONY
 all: check
@@ -41,6 +48,7 @@ DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.d)
 -include $(DEPS_fidocrypt)
 fidocrypt: $(SRCS_fidocrypt:.c=.o)
 	$(CC) -o $@ $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) $(LDLIBS)
+fidocrypt.o: fidocrypt1.i
 
 clean: clean-fidocrypt
 clean-fidocrypt: .PHONY

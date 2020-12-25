@@ -30,7 +30,7 @@
 .Nd store a short secret in a file encrypted with U2F/FIDO
 .Sh SYNOPSIS
 .Nm
-.Op Fl dqv
+.Op Fl Edqv
 .Op Fl r Ar rpid
 .Ar command
 .Op Ar args...
@@ -53,11 +53,12 @@ disk encryption key.
 .Sy WARNING :
 .Nm
 is a work in progress.
-The file format is not stable and will likely be replaced by a sqlite3
-database soon, in order to facilitate giving nicknames to security keys
-and unenrolling security keys.
+The file format is not yet stable.
 .Ss Common options
 .Bl -tag -width abcd
+.It Fl E
+Enable reading experimental cryptfile formats.
+Use with care only during development and testing.
 .It Fl d
 Enable debug output: print various internal diagnostics to stderr.
 For additional (and very verbose) debug output including the raw

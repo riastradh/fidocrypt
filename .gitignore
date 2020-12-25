@@ -4,6 +4,7 @@
 *~
 
 /fidocrypt
+/fidocrypt*.i
 /fidokdf
 /t_assert_decrypt
 /t_assert_kdf
