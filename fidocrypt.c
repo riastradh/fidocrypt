@@ -1540,12 +1540,12 @@ cmd_rename(int argc, char **argv)
 	else
 		rename_id(db, id, newname);
 
-	/* Verify that we actually deleted one record.  */
+	/* Verify that we actually updated one record.  */
 	if ((nchanges = sqlite3_changes(db)) != 1) {
 		if (nchanges == 0)
 			errx(1, "no such key");
 		else
-			errx(1, "deleted more than expected");
+			errx(1, "renamed more than expected");
 	}
 
 	/* Success!  */
