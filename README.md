@@ -68,22 +68,27 @@ tweaks for other systems, but the rest should not.)
 Example:
 
 ```none
-% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \
-	example.crypt
+% export FIDOCRYPT_RPID=fidocrypt.example.com
+% fidocrypt enroll -N Falken -u falken -n yubi5nano example.crypt
 tap key to enroll; waiting...
-% ./fidocrypt -r fidocrypt.example.com get example.crypt
+% fidocrypt list example.crypt
+1 yubi5nano
+% fidocrypt get example.crypt
 fidocrypt: specify an output format (-F)
 Usage: fidocrypt get -F <format> <cryptfile>
-% ./fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
+% fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
-% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \
-	example.crypt
+% fidocrypt enroll -N Falken -u falken -n redsolokey example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
-% ./fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
+% fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
+% fidocrypt rename -n redsolokey example.crypt blacksolokey
+% fidocrypt list example.crypt
+2 blacksolokey
+1 yubi5nano
 ```
 
 The fidocrypt command is implemented in terms of the following
