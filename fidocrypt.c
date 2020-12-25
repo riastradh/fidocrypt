@@ -1521,6 +1521,12 @@ cmd_rename(int argc, char **argv)
 	cryptfile = *argv++; argc--;
 	newname = *argv++; argc--;
 
+	/* Verify the newname is going to work with sqlite3.  */
+	if (strlen(newname) > INT_MAX) {
+		warnx("excessive new nickname length: %zu", strlen(newname));
+		error = 1;
+	}
+
 	/* Verify we have all the arguments we need.  */
 	if (id == -1 && nickname == NULL) {
 		warnx("specify an id number (-i) or nickname (-n)");
