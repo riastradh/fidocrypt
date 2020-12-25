@@ -28,6 +28,8 @@
 
 #define	_NETBSD_SOURCE
 
+#include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 
 #include <assert.h>
@@ -1467,6 +1469,7 @@ usage(void)
 int
 main(int argc, char **argv)
 {
+	struct rlimit rlim;
 	int ch, error = 0;
 
 	/* Set the program name for getprogname() later on.  */
@@ -1529,6 +1532,14 @@ main(int argc, char **argv)
 		if ((S->ttyfd = open("/dev/tty", O_WRONLY)) == -1)
 			err(1, "open tty");
 	}
+
+	/* Lock all future pages and disable core dumps.  */
+	if (mlockall(MCL_FUTURE) == -1)
+		err(1, "mlockall");
+	rlim.rlim_cur = 0;
+	rlim.rlim_max = 0;
+	if (setrlimit(RLIMIT_CORE, &rlim) == -1)
+		err(1, "setrlimit(RLIMIT_CORE)");
 
 	/*
 	 * Verify we have a command and dispatch on it.  Make sure to
