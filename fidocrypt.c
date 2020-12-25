@@ -724,8 +724,12 @@ opencrypt(const char *path, int flags)
 	 * concurrent writes already ongoing.
 	 *
 	 * Otherwise, if we're opening read-only, just start a deferred
-	 * transaction so the state doesn't change under us while we
-	 * work.
+	 * transaction.  If we were in journal_mode=WAL this would
+	 * prevent the state from changing under us while we work, but
+	 * we don't set that because it makes life more difficult on
+	 * read-only media than rollback journals do.  So starting a
+	 * transaction here is really only to make it convenient for
+	 * closecrypt to just commit it.
 	 */
 	if ((flags & SQLITE_OPEN_READWRITE) == SQLITE_OPEN_READWRITE) {
 		if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, &errmsg)
@@ -769,13 +773,22 @@ closecrypt(sqlite3 *db)
 static void
 set_credentials(sqlite3 *db)
 {
-	int64_t n;
+	int64_t dv[2], n;
 	sqlite3_stmt *stmt;
 	unsigned i;
 	int error;
 
+top:	/*
+	 * Get the data version so we can determine when something is
+	 * awry or when the database was merely updated while we were
+	 * trying to read from it.
+	 */
+	if (db_exec1int(db, "PRAGMA data_version", &dv[0]) != SQLITE_OK)
+		errx(1, "%s: sqlite3 data version 0: %s", __func__,
+		    sqlite3_errmsg(db));
+
 	/* Determine how many entries there are.  */
-	if (db_exec1int(db, "SELECT count(*) FROM entry", &n) != SQLITE_OK)
+	if (db_exec1int(db, "SELECT COUNT(*) FROM entry", &n) != SQLITE_OK)
 		errx(1, "count credentials: %s", sqlite3_errmsg(db));
 	if (n < 0)
 		errx(1, "negative credential count: %"PRId64, n);
@@ -798,7 +811,7 @@ set_credentials(sqlite3 *db)
 
 		if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
 			if (error == SQLITE_DONE)
-				errx(1, "database corrupt");
+				goto retry;
 			errx(1, "list credentials: %s", sqlite3_errmsg(db));
 		}
 		if ((ptr = sqlite3_column_blob(stmt, 0)) == NULL)
@@ -813,12 +826,44 @@ set_credentials(sqlite3 *db)
 	}
 	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
 		if (error == SQLITE_ROW)
-			errx(1, "excessive credentials");
+			goto retry;
 		errx(1, "list credentials done: %s", sqlite3_errmsg(db));
 	}
 	if (sqlite3_finalize(stmt) != SQLITE_OK)
 		errx(1, "%s: sqlite3 finalize: %s", __func__,
 		    sqlite3_errmsg(db));
+	return;
+
+retry:	/*
+	 * The count mismatched the number of rows.  Since sqlite3
+	 * doesn't provide snapshot isolation[*], the table could have
+	 * changed while we were reading it; if this is the case,
+	 * data_version will reflect the change, and we need to start
+	 * over.  If data_version is unchanged, though, something must
+	 * be seriously awry, so just give up.
+	 *
+	 * [*] See <https://sqlite.org/isolation.html>.  sqlite3 does
+	 * provide snapshot isolation when journal_mode=WAL, but with
+	 * journal_mode=WAL it is more finicky about read-only media,
+	 * and we would like this to work early at boot from read-only
+	 * media.
+	 */
+	if (db_exec1int(db, "PRAGMA data_version", &dv[1]) != SQLITE_OK)
+		errx(1, "%s: sqlite3 data version 0: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (dv[0] == dv[1])
+		errx(1, "database corrupt");
+	while (i --> 0) {
+		OPENSSL_cleanse(S->creds[i].ptr, S->creds[i].nbytes);
+		free(S->creds[i].ptr);
+	}
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize (retry): %s", __func__,
+		    sqlite3_errmsg(db));
+	free(S->creds);
+	S->creds = NULL;
+	S->ncreds = 0;
+	goto top;
 }
 
 static void *
