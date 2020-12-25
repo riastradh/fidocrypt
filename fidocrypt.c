@@ -1431,6 +1431,11 @@ cmd_list(int argc, char **argv)
 		 * Print the id, and then a shell-safe nickname so that
 		 * the user can copy & paste it into a shell command
 		 * line.
+		 *
+		 * XXX Derp -- this doesn't actually work; for some
+		 * reason it fails to print multibyte characters as
+		 * advertised, and it also doesn't actually match shell
+		 * escape syntax so the above copypasta is no good.
 		 */
 		id = sqlite3_column_int64(stmt, 0);
 		nickname = (const char *)sqlite3_column_text(stmt, 1);
