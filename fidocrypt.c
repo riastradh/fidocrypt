@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vis.h>
 
 #include <fido.h>
 #include <openssl/crypto.h>
@@ -750,6 +751,14 @@ closecrypt(sqlite3 *db)
 		errx(1, "%s: sqlite3 COMMIT: %s", __func__,
 		    sqlite3_errmsg(db));
 
+	/*
+	 * If we did anything, vacuum the database to overwrite it with
+	 * zeros in case anything we tried to do was deletion.
+	 */
+	if (sqlite3_total_changes(db) &&
+	    sqlite3_exec(db, "VACUUM", NULL, NULL, NULL) != SQLITE_OK)
+		errx(1, "sqlite3 vacuum: %s", sqlite3_errmsg(db));
+
 	/* Finally, close the database.  */
 	if (sqlite3_close(db) != SQLITE_OK)
 		errx(1, "close cryptfile: %s", sqlite3_errmsg(db));
@@ -881,20 +890,67 @@ do_get(size_t *nsecretp, sqlite3 *db)
 	return secret;
 }
 
+static void
+delete_nickname(sqlite3 *db, const char *nickname)
+{
+	sqlite3_stmt *stmt = NULL;
+	int error;
+
+	if (sqlite3_prepare_v2(db, "DELETE FROM entry WHERE nickname = ?", -1,
+		&stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_text(stmt, 1, nickname, (int)strlen(nickname),
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind: %s", __func__, sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "DELETE unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
+}
+
+static void
+delete_id(sqlite3 *db, int64_t id)
+{
+	sqlite3_stmt *stmt = NULL;
+	int error;
+
+	if (sqlite3_prepare_v2(db, "DELETE FROM entry WHERE id = ?", -1,
+		&stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_int64(stmt, 1, id) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind: %s", __func__, sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "DELETE unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
+}
+
 static void __dead
 usage_enroll(void)
 {
 
 	fprintf(stderr,
-	    "Usage: %s enroll -N <username> -u <userid> [-s <secretfile>]"
-	    " <cryptfile>\n",
+	    "Usage: %s enroll -N <username> -u <userid> [-n <nickname>]\n",
 	    getprogname());
+	fprintf(stderr,
+	    "           [-s <secretfile>] <cryptfile>\n");
 	exit(1);
 }
 
 static void
 cmd_enroll(int argc, char **argv)
 {
+	const char *nickname = NULL;
 	const char *secretfile = NULL;
 	const char *cryptfile = NULL;
 	sqlite3 *db = NULL;
@@ -909,7 +965,7 @@ cmd_enroll(int argc, char **argv)
 	int ch, error = 0;
 
 	/* Parse arguments.  */
-	while ((ch = getopt(argc, argv, "hN:s:u:")) != -1) {
+	while ((ch = getopt(argc, argv, "hN:n:s:u:")) != -1) {
 		switch (ch) {
 		case 'N':
 			if (S->user_name) {
@@ -918,6 +974,20 @@ cmd_enroll(int argc, char **argv)
 				break;
 			}
 			S->user_name = optarg;
+			break;
+		case 'n':
+			if (nickname) {
+				warnx("specify only one nickname");
+				error = 1;
+				break;
+			}
+			nickname = optarg;
+			if (strlen(nickname) > INT_MAX) {
+				warnx("excessive nickname length: %zu",
+				    strlen(nickname));
+				error = 1;
+				break;
+			}
 			break;
 		case 's':
 			if (secretfile) {
@@ -1054,16 +1124,23 @@ cmd_enroll(int argc, char **argv)
 
 	/* Prepare a statement.  */
 	if (sqlite3_prepare_v2(db,
-		"INSERT INTO entry(nickname, credential_id, ciphertext)"
+		"INSERT INTO entry (nickname, credential_id, ciphertext)"
 		" VALUES (?, ?, ?)",
 		-1, &stmt, NULL) != SQLITE_OK)
 		errx(1, "%s: sqlite3 prepare: %s", __func__,
 		    sqlite3_errmsg(db));
 
-	/* Set the nickname. (XXX)  */
-	if (sqlite3_bind_null(stmt, 1) != SQLITE_OK)
-		errx(1, "%s: sqlite3 bind nickname: %s", __func__,
-		    sqlite3_errmsg(db));
+	/* Set the nickname.  */
+	if (nickname) {
+		if (sqlite3_bind_text(stmt, 1, nickname, (int)strlen(nickname),
+			SQLITE_STATIC) != SQLITE_OK)
+			errx(1, "%s: sqlite3 bind nickname: %s", __func__,
+			    sqlite3_errmsg(db));
+	} else {
+		if (sqlite3_bind_null(stmt, 1) != SQLITE_OK)
+			errx(1, "%s: sqlite3 bind nickname: %s", __func__,
+			    sqlite3_errmsg(db));
+	}
 
 	/* Set the credential id.  */
 	if (ncredential_id > INT_MAX)
@@ -1094,6 +1171,8 @@ cmd_enroll(int argc, char **argv)
 		    sqlite3_errmsg(db));
 
 	/* Success!  */
+	OPENSSL_cleanse(ciphertext, nciphertext);
+	free(ciphertext);
 	fido_cred_free(&cred);
 	OPENSSL_cleanse(secret, nsecret);
 	if (secret != secretbuf)
@@ -1195,6 +1274,178 @@ cmd_get(int argc, char **argv)
 }
 
 static void __dead
+usage_list(void)
+{
+
+	fprintf(stderr, "Usage: %s list <cryptfile>\n", getprogname());
+	exit(1);
+}
+
+static void
+cmd_list(int argc, char **argv)
+{
+	const char *cryptfile = NULL;
+	sqlite3 *db = NULL;
+	sqlite3_stmt *stmt = NULL;
+	int ch, error = 0;
+
+	/* Parse arguments.  */
+	while ((ch = getopt(argc, argv, "h")) != -1) {
+		switch (ch) {
+		case '?':
+		case 'h':
+		default:
+			usage_list();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+	if (argc != 1)
+		usage_list();
+	cryptfile = *argv++; argc--;
+
+	/* Stop and report usage errors if any.  */
+	if (error)
+		usage_list();
+
+	/* Open the cryptfile read-only, or fail if it doesn't exist.  */
+	db = opencrypt(cryptfile, SQLITE_OPEN_READONLY);
+
+	/* List the credentials.  */
+	if (sqlite3_prepare_v2(db,
+		"SELECT id, nickname FROM entry ORDER BY nickname ASC, id ASC",
+		-1,
+		&stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	while ((error = sqlite3_step(stmt)) == SQLITE_ROW) {
+		int64_t id;
+		const char *nickname;
+		char *vnickname = NULL;
+
+		/*
+		 * Print the id, and then a shell-safe nickname so that
+		 * the user can copy & paste it into a shell command
+		 * line.
+		 */
+		id = sqlite3_column_int64(stmt, 0);
+		nickname = (const char *)sqlite3_column_text(stmt, 1);
+		if (nickname) {
+			if (stravis(&vnickname, nickname, VIS_META) == -1)
+				err(1, "stravis");
+		}
+		printf("%"PRId64"%s%s\n", id, nickname ? " " : "",
+		    nickname ? vnickname : "");
+		free(vnickname);
+	}
+	if (error != SQLITE_DONE)
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	if (sqlite3_finalize(stmt) != SQLITE_OK)
+		errx(1, "%s: sqlite3 finalize: %s", __func__,
+		    sqlite3_errmsg(db));
+
+	/* Success!  */
+	closecrypt(db);
+}
+
+static void __dead
+usage_unenroll(void)
+{
+
+	fprintf(stderr,
+	    "Usage: %s unenroll [-N <id>] [-n <nickname>] <cryptfile>\n",
+	    getprogname());
+	exit(1);
+}
+
+static void
+cmd_unenroll(int argc, char **argv)
+{
+	long long id = -1;
+	const char *nickname = NULL;
+	const char *cryptfile = NULL;
+	sqlite3 *db = NULL;
+	int nchanges;
+	int ch, error = 0;
+
+	/* Parse arguments.  */
+	while ((ch = getopt(argc, argv, "hi:n:")) != -1) {
+		switch (ch) {
+		case 'i': {
+			char *end;
+
+			if (id != -1 || nickname) {
+				warnx("specify only one id or nickname");
+				error = 1;
+				break;
+			}
+			errno = 0;
+			id = strtoll(optarg, &end, 0);
+			if (end == optarg || *end != '\0' || errno == ERANGE) {
+				warnx("invalid id");
+				error = 1;
+				break;
+			}
+			break;
+		}
+		case 'n':
+			if (id != -1 || nickname) {
+				warnx("specify only one id or nickname");
+				error = 1;
+				break;
+			}
+			nickname = optarg;
+			if (strlen(nickname) > INT_MAX) {
+				warnx("excessive nickname length: %zu",
+				    strlen(nickname));
+				error = 1;
+				break;
+			}
+			break;
+		case '?':
+		case 'h':
+		default:
+			usage_unenroll();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+	if (argc != 1)
+		usage_unenroll();
+	cryptfile = *argv++; argc--;
+
+	/* Verify we have all the arguments we need.  */
+	if (id == -1 && nickname == NULL) {
+		warnx("specify an id number (-i) or nickname (-n)");
+		error = 1;
+	}
+
+	/* Stop and report usage errors if any.  */
+	if (error)
+		usage_unenroll();
+
+	/* Open the cryptfile read/write, or fail if it doesn't exist.  */
+	db = opencrypt(cryptfile, SQLITE_OPEN_READWRITE);
+
+	/* Delete the specified credential.  */
+	if (nickname)
+		delete_nickname(db, nickname);
+	else
+		delete_id(db, id);
+
+	/* Verify that we actually deleted one record.  */
+	if ((nchanges = sqlite3_changes(db)) != 1) {
+		if (nchanges == 0)
+			errx(1, "no such key");
+		else
+			errx(1, "deleted more than expected");
+	}
+
+	/* Success!  */
+	closecrypt(db);
+}
+
+static void __dead
 usage(void)
 {
 
@@ -1206,12 +1457,10 @@ usage(void)
 	    getprogname());
 	fprintf(stderr, "       %s get [<options>] <cryptfile>\n",
 	    getprogname());
-#if 0
 	fprintf(stderr, "       %s list [<options>] <cryptfile>\n",
 	    getprogname());
 	fprintf(stderr, "       %s unenroll [<options>] <cryptfile>\n",
 	    getprogname());
-#endif
 	exit(1);
 }
 
@@ -1290,12 +1539,10 @@ main(int argc, char **argv)
 		cmd_enroll(argc, argv);
 	else if (strcmp(argv[0], "get") == 0)
 		cmd_get(argc, argv);
-#if 0
 	else if (strcmp(argv[0], "list") == 0)
 		cmd_list(argc, argv);
 	else if (strcmp(argv[0], "unenroll") == 0)
 		cmd_unenroll(argc, argv);
-#endif
 	else {
 		warnx("unknown command");
 		usage();

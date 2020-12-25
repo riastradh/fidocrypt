@@ -92,7 +92,7 @@ option takes precedence.
 .El
 .Ss Commands
 .Bl -tag -width abcd
-.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl s Ar secretfile Oc Ar cryptfile
+.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Ar cryptfile
 Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
 secret with it.
 .Bl -bullet -compact
@@ -149,7 +149,14 @@ stored secret with
 and still has it in memory, in order to reduce the amount of device
 tapping.
 .Pp
-The options
+The option
+.Fl n Ar nickname
+lets you specify a nickname for later display with
+.Cm fidocrypt list
+or use with
+.Cm fidocrypt unenroll .
+.Pp
+The
 .Fl N Ar username
 and
 .Fl u Ar userid
@@ -184,6 +191,26 @@ The
 option is mandatory \(em that way, you won't inadvertently either screw
 up your terminal or feed base64 data into a program that expects raw
 bytes.
+.It Cm list Ar cryptfile
+List the credentials in
+.Ar cryptfile ,
+by internally assigned numeric id and by the optional
+.Ar nickname
+passed to
+.Cm fidocrypt enroll .
+.It Cm unenroll Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile
+Unenroll a U2F/FIDO security key from
+.Ar cryptfile
+so will no longer pass
+.Cm fidocrypt get .
+The enrollment may be specified by numeric id with
+.Fl i
+as shown in
+.Cm fidocrypt list
+output, or by the nickname with
+.Fl n
+that was passed to
+.Cm fidocrypt enroll .
 .El
 .Ss Security properties
 .Bl -bullet
