@@ -267,16 +267,16 @@ option.
 .El
 .Sh EXAMPLES
 .Bd -literal -offset abcd
-% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
+% fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
 	example.crypt
 tap key to enroll; waiting...
-% ./fidocrypt -r fidocrypt.example.com get example.crypt
+% fidocrypt -r fidocrypt.example.com get example.crypt
 fidocrypt: specify an output format (-F)
 Usage: fidocrypt get -F <format> <cryptfile>
-% ./fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
+% fidocrypt -r fidocrypt.example.com get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
-% ./fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
+% fidocrypt -r fidocrypt.example.com enroll -N Falken -u falken \e
 	example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
