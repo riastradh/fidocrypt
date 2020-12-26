@@ -58,9 +58,6 @@ static const char *schema[] = {
 static unsigned oldest_compatible_version = 1;
 
 static struct state {
-	pthread_mutex_t		mtx;
-	pthread_cond_t		cond;
-
 	int			ttyfd;
 	bool			quiet;
 	bool			verbose;
@@ -79,6 +76,9 @@ static struct state {
 		size_t			nbytes;
 	}			*creds;
 	size_t			ncreds;
+
+	pthread_mutex_t		mtx;
+	pthread_cond_t		cond;
 
 	unsigned		pending;
 	const fido_dev_info_t	*devlist;
