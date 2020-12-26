@@ -179,7 +179,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx, int cose_alg,
 {
 	const void *cdh, *authdata_enc, *authdata, *sig;
 	size_t ncdh, nauthdata_enc, nauthdata, nsig;
-	cbor_item_t *authdata_cbor;
+	cbor_item_t *authdata_cbor = NULL;
 	struct cbor_load_result load;
 	SHA256_CTX ctx;
 	uint8_t hash[32];
