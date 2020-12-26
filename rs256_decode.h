@@ -26,15 +26,14 @@
  * SUCH DAMAGE.
  */
 
-#ifndef	FIDOCRYPT_ASSERT_DECRYPT_H
-#define	FIDOCRYPT_ASSERT_DECRYPT_H
+#ifndef	FIDOCRYPT_RS256_DECODE_H
+#define	FIDOCRYPT_RS256_DECODE_H
 
-#include <stddef.h>
+#include <cbor.h>
+#include <fido/rs256.h>
 
-#include <fido.h>
+#define	rs256_pk_decode	fidocrypt_rs256_pk_decode	/* private */
 
-int fido_assert_decrypt(const fido_assert_t *, size_t,
-    const unsigned char *, size_t,
-    unsigned char **, size_t *);
+int rs256_pk_decode(const cbor_item_t *, rs256_pk_t *);
 
-#endif	/* FIDOCRYPT_ASSERT_DECRYPT_H */
+#endif	/* FIDOCRYPT_RS256_DECODE_H */

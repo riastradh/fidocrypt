@@ -24,24 +24,30 @@ different from standard webauthn credential storage.  Signin with
 fidocrypt provides the same authentication guarantee as standard
 webauthn -- it just also lets you retrieve a secret at the same time.
 
-Fidocrypt works only with ECDSA over NIST P-256 (i.e., `ES256`/`P-256`,
-in terms of [RFC 8152](https://tools.ietf.org/html/rfc8152)) -- it
-could easily be extended to ECDSA over NIST P-384 or NIST P-521, but it
-cannot be made to work with EdDSA (Ed25519 or Ed448) or RSASSA-PSS.
+Fidocrypt works with:
+- any U2F key
+- any FIDO2 key using ECDSA over NIST P-256 (i.e., `ES256`/`P-256`,
+  in terms of [RFC 8152](https://tools.ietf.org/html/rfc8152))
+- any FIDO2 key with the hmac-secret extension using Ed25519 (i.e.,
+  `EDDSA`/`ED25519`)
+
+This should cover essentially every U2F/FIDO key ever made as of 2020;
+the vast majority support ECDSA over NIST P-256 anyway.
 
 This C implementation of fidocrypt is based on Yubico's
 [libfido2](https://github.com/Yubico/libfido2) library.
 
 #### [Protocol description](PROTOCOL.md)
 
-Credit: I first learned about this technique from Joseph Birr-Paxton's
-blog post on [abusing U2F to ‘store’
+Credit: I first learned about the technique to derive secrets with U2F
+from Joseph Birr-Paxton's blog post on [abusing U2F to ‘store’
 keys](https://jbp.io/2015/11/23/abusing-u2f-to-store-keys.html).
 
 I tweaked it to store a secret with the credential that can be
 decrypted with a key derived from the device, rather than just exposing
 the key directly, so that you can easily store the _same_ secret
-encrypted differently with many U2F devices.
+encrypted differently with many U2F devices.  Then I added support for
+the hmac-secret extension so it is less of an abuse of the protocol.
 
 Other implementations of the same basic idea:
 
@@ -71,6 +77,7 @@ Example:
 % export FIDOCRYPT_RPID=fidocrypt.example.com
 % fidocrypt enroll -N Falken -u falken -n yubi5nano example.crypt
 tap key to enroll; waiting...
+tap key again to verify; waiting...
 % fidocrypt list example.crypt
 1 yubi5nano
 % fidocrypt get example.crypt
@@ -82,6 +89,7 @@ yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
 % fidocrypt enroll -N Falken -u falken -n redsolokey example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
+tap key again to verify; waiting...
 % fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
@@ -94,41 +102,59 @@ yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
 The fidocrypt command is implemented in terms of the following
 functions extending the libfido2 API:
 
-- [`fido_cred_encrypt(cred, cose_alg, ciphertext, payload, n)`](cred_encrypt.c)
+- [`fido_cred_encrypt(cred, assert, idx, payload, payloadlen, &ciphertext, &ciphertextlen)`](cred_encrypt.c)
 
   Given a credential, such as one obtained with `fido_dev_make_cred` or
   derived from webauthn `navigator.credential.create`, encrypt the
-  `n`-byte `payload` and store it in `ciphertext`.  `ciphertext` must
-  be a buffer of at least `FIDOCRYPT_OVERHEADBYTES` more bytes than
-  `payload`; exactly `FIDOCRYPT_OVERHEADBYTES + n` bytes will be
-  stored.
+  `payloadlen`-byte `payload` and store it in a buffer of
+  `ciphertextlen' bytes stored in `ciphertext`.
+
+  For devices supporting the [hmac-secret extension][hmac-secret], if
+  `assert` is an assertion, such as one obtained with
+  `fido_dev_get_assert` or derived from webauthn
+  `navigator.credential.get`, then the secret will be incorporated into
+  the derived encryption key.  In order to use this, when querying the
+  authenticator you must first enable the extension, such as with
+  `fido_cred_set_extensions(cred, FIDO_EXT_HMAC_SECRET)` and
+  `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)`, and set
+  the hmac-secret salt, such as with `fido_assert_set_hmac_salt`.
 
   You should then store `ciphertext` alongside the credential id of
   `cred` so you can later pass it to `fido_assert_decrypt` to verify an
   authenticator and recover the payload.  You must make sure to _erase_
   the ‘public key’ in the credential, since for fidocrypt's secrecy
-  properties it must be kept secret; `fido_assert_decrypt` will verify
-  an assertion using the ciphertext instead of the public key.
+  properties it must be kept secret; you don't need to keep it around
+  for `fido_assert_verify` -- using `fido_assert_decrypt` (below) will
+  verify an assertion using the ciphertext instead of the public key.
+  Once you are done with `ciphertext`, you must free it with `free`.
 
   Callers concerned with device attestation are responsible for calling
   `fido_cred_verify`; `fido_cred_encrypt` does nothing to verify device
   attestations.
 
-- [`fido_assert_decrypt(assert, idx, cose_alg, payload, ciphertext, n)`](assert_decrypt.c)
+- [`fido_assert_decrypt(assert, idx, ciphertext, ciphertextlen, &payload, &payloadlen)`](assert_decrypt.c)
 
   Given an assertion, such as one obtained with `fido_dev_get_assert`
-  or derived from webauthn `navigator.credential.get`, and `n`-byte
-  `ciphertext` associated with the credential id in the assertion as
-  obtained with `fido_cred_encrypt`, verify and decrypt the ciphertext
-  and store the plaintext in `payload`, or fail if the assertion does
-  not match.  `n` must be at least `FIDOCRYPT_OVERHEADBYTES`; exactly
-  `FIDOCRYPT_OVERHEADBYTES - n` bytes will be written to `payload`.
+  or derived from webauthn `navigator.credential.get`, and
+  `ciphertextlen`-byte `ciphertext` associated with the credential id
+  in the assertion as obtained with `fido_cred_encrypt`, verify and
+  decrypt the ciphertext, and store the plaintext in a newly allocated
+  `payloadlen`-byte buffer stored in `payload`, or fail if the
+  assertion does not match.  Once you are done with `payload`, you must
+  free it with `free`.
+
+  If the ciphertext was created with the hmac-secret extension, it must
+  be decrypted with an assertion that was obtained with the hmac-secret
+  extension using the same salt as for creation.
 
   `fido_assert_decrypt` implies the same authentication security as
-  `fido_assert_verify` against a known public key.  You must _only_ use
-  `fido_assert_decrypt`, and not `fido_assert_verify`, if you are using
-  fidocrypt, since for fidocrypt's secrecy properties the ‘public key’
-  must be kept secret.
+  `fido_assert_verify` against a known public key.  **You must _only_
+  use `fido_assert_decrypt`, and not `fido_assert_verify`**, if you are
+  using fidocrypt, since for fidocrypt's secrecy properties the ‘public
+  key’ must be kept secret.
+
+
+  [hmac-secret]: https://fidoalliance.org/specs/fido-v2.0-rd-20180702/fido-client-to-authenticator-protocol-v2.0-rd-20180702.html#sctn-hmac-secret-extension
 
 
 Security
@@ -173,6 +199,24 @@ software storage device or similar.
   [solokeys-keyload1]: https://github.com/solokeys/solo/blob/8b91ec7c538d0d071842e0b86ef94266936ab1d7/fido2/u2f.c#L250-L252
   [solokeys-keyload2]: https://github.com/solokeys/solo/blob/8b91ec7c538d0d071842e0b86ef94266936ab1d7/fido2/u2f.c#L164-L168
   [solokeys-keyload3]: https://github.com/solokeys/solo/blob/8b91ec7c538d0d071842e0b86ef94266936ab1d7/fido2/crypto.c#L210-L216
+
+
+### Transport security
+
+- _Without_ the hmac-secret extension, an eavesdropper or MITM on the
+  channel between the authenticator and the server can recover the
+  encryption key that will decrypt the ciphertext on the server.  (The
+  adversary would still need the ciphertext on the server, of course.)
+
+  Normally this threat model is not relevant -- typically, the channel
+  goes through a browser talking to the server over TLS; the browser is
+  trusted anyway, and TLS should defeat any eavesdropper and MITM on
+  the network.  However, it might be relevant for NFC devices that
+  implement only U2F or FIDO2 without the hmac-secret extension.
+
+- _With_ the hmac-secret extension, fidocrypt defends against such an
+  eavesdropper or MITM.
+
 
 ### Side channels
 

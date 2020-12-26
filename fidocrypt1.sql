@@ -33,3 +33,8 @@ CREATE TABLE entry (
 	credential_id	BLOB NOT NULL UNIQUE,
 	ciphertext	BLOB NOT NULL
 );
+
+CREATE TABLE hmac_secret (
+	id		INTEGER PRIMARY KEY CHECK(id = 0),
+	salt		BLOB NOT NULL CHECK(length(salt) == 32)
+);

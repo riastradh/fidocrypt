@@ -51,7 +51,6 @@
 
 #include "assert_decrypt.h"
 #include "cred_encrypt.h"
-#include "fidocrypt.h"
 
 static const char *schema[] = {
 #include "fidocrypt1.i"
@@ -67,10 +66,13 @@ static struct state {
 	bool			verbose;
 	bool			debug;
 	bool			experimental;
+	bool			hmacsecret_disabled;
+	int			type;
 
 	const char		*rp_id;
 	const char		*user_id;
 	const char		*user_name;
+	uint8_t			hmacsecret_salt[32];
 
 	struct {
 		void			*ptr;
@@ -313,11 +315,11 @@ static void *
 enroll_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
-	const fido_dev_info_t *devinfo = NULL;
-	fido_dev_t *dev = NULL;
-	sigset_t mask, omask;
 	uint8_t challenge[32];
+	sigset_t mask, omask;
+	const fido_dev_info_t *devinfo = NULL;
 	const char *path;
+	fido_dev_t *dev = NULL;
 	fido_cred_t *cred = NULL;
 	unsigned j;
 	int error, ok = 0;
@@ -375,7 +377,7 @@ enroll_thread(void *cookie)
 		warnx("fido_cred_new");
 		goto out;
 	}
-	if ((error = fido_cred_set_type(cred, COSE_ES256)) != FIDO_OK) {
+	if ((error = fido_cred_set_type(cred, S->type)) != FIDO_OK) {
 		warnx("fido_cred_set_type: %s", fido_strerr(error));
 		goto out;
 	}
@@ -463,11 +465,13 @@ static void *
 get_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
-	const fido_dev_info_t *devinfo = NULL;
-	fido_dev_t *dev = NULL;
-	sigset_t mask, omask;
 	uint8_t challenge[32];
+	sigset_t mask, omask;
+	const fido_dev_info_t *devinfo = NULL;
 	const char *path;
+	fido_dev_t *dev = NULL;
+	fido_cbor_info_t *ci = NULL;
+	bool hmacsecret_supported = false;
 	fido_assert_t *assert = NULL;
 	unsigned j;
 	int error, ok = 0;
@@ -520,6 +524,38 @@ get_thread(void *cookie)
 		goto out;
 	}
 
+	/*
+	 * If this is a FIDO2 device, query it with GETINFO to
+	 * ascertain whether it supports the hmac-secret extension.
+	 */
+	if (fido_dev_is_fido2(dev)) do {
+		char **extensions;
+		size_t i, n;
+
+		if ((ci = fido_cbor_info_new()) == NULL) {
+			warnx("fido_cbor_info_new: %s", fido_strerr(error));
+			goto out;
+		}
+		if ((error = fido_dev_get_cbor_info(dev, ci)) != 0) {
+			warnx("fido_dev_get_cbor_info: %s",
+			    fido_strerr(error));
+			goto out;
+		}
+		if ((extensions = fido_cbor_info_extensions_ptr(ci)) == NULL ||
+		    (n = fido_cbor_info_extensions_len(ci)) == 0)
+			break;
+		for (i = 0; i < n; i++) {
+			if (strcmp(extensions[i], "hmac-secret") == 0) {
+				hmacsecret_supported = true;
+				break;
+			}
+		}
+	} while (0);
+
+	/* If requested, simulate lack of support for hmac-secret.  */
+	if (S->hmacsecret_disabled)
+		hmacsecret_supported = false;
+
 	/* Create an assertion and set its parameters.  */
 	if ((assert = fido_assert_new()) == NULL) {
 		warnx("fido_assert_new");
@@ -539,6 +575,23 @@ get_thread(void *cookie)
 		if ((error = fido_assert_allow_cred(assert, S->creds[j].ptr,
 			    S->creds[j].nbytes)) != FIDO_OK)
 			errx(1, "fido_assert_allow_cred: %s",
+			    fido_strerr(error));
+	}
+
+	/*
+	 * If the device supports the hmac-secret extension, enable it
+	 * and set the salt.
+	 */
+	if (hmacsecret_supported) {
+		if ((error = fido_assert_set_extensions(assert,
+			    FIDO_EXT_HMAC_SECRET)) != FIDO_OK)
+			errx(1, "fido_assert_set_extensions"
+			    "(FIDO_EXT_HMAC_SECRET): %s",
+			    fido_strerr(error));
+		if ((error = fido_assert_set_hmac_salt(assert,
+			    S->hmacsecret_salt, sizeof(S->hmacsecret_salt)))
+		    != FIDO_OK)
+			errx(1, "fido_assert_set_hmac_salt: %s",
 			    fido_strerr(error));
 	}
 
@@ -578,6 +631,7 @@ out:	if (!ok) {
 	assert = done(i, assert, devinfo);
 	if (assert)
 		fido_assert_free(&assert);
+	fido_cbor_info_free(&ci);
 	fido_dev_close(dev);
 	fido_dev_free(&dev);
 	return NULL;		/* pthread return value */
@@ -723,6 +777,58 @@ out:	if (stmt) {
 	return error;
 }
 
+static void
+ensure_hmacsecret_salt(sqlite3 *db)
+{
+	uint8_t hmacsecret_salt[32];
+	sqlite3_stmt *stmt;
+	int error;
+
+	if (!RAND_bytes(hmacsecret_salt, sizeof(hmacsecret_salt)))
+		errx(1, "RAND_bytes");
+
+	if (sqlite3_prepare_v2(db,
+		"INSERT OR IGNORE INTO hmac_secret (id, salt) VALUES (0, ?)",
+		-1, &stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_blob(stmt, 1, hmacsecret_salt,
+		sizeof(hmacsecret_salt), SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind: %s", __func__, sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "INSERT unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	sqlite3_finalize(stmt);
+	OPENSSL_cleanse(hmacsecret_salt, sizeof(hmacsecret_salt));
+}
+
+static void
+set_hmacsecret_salt(sqlite3 *db)
+{
+	sqlite3_stmt *stmt;
+	const void *blob;
+	int error;
+
+	if (sqlite3_prepare_v2(db,
+		"SELECT salt FROM hmac_secret WHERE id = 0",
+		-1, &stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
+		if (error == SQLITE_DONE)
+			errx(1, "missing hmac-secret salt");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if ((blob = sqlite3_column_blob(stmt, 0)) == NULL)
+		errx(1, "%s: missing column 0", __func__);
+	if (sqlite3_column_bytes(stmt, 0) != 32)
+		errx(1, "%s: bogus column 0", __func__);
+	memcpy(S->hmacsecret_salt, blob, 32);
+	sqlite3_finalize(stmt);
+}
+
 static sqlite3 *
 opencrypt(const char *path, int flags)
 {
@@ -768,6 +874,9 @@ opencrypt(const char *path, int flags)
 			    != SQLITE_OK)
 				errx(1, "sqlite3 COMMIT: %s", errmsg);
 		}
+
+		/* Ensure there is an hmac-secret salt.  */
+		ensure_hmacsecret_salt(db);
 	} else {
 		if ((uint64_t)abs(ver) > __arraycount(schema))
 			errx(1, "unknown cryptfile format (version=%"PRId64")",
@@ -837,6 +946,33 @@ closecrypt(sqlite3 *db)
 }
 
 static void
+clear_credentials(void)
+{
+	unsigned i;
+
+	for (i = S->ncreds; i --> 0;) {
+		OPENSSL_cleanse(S->creds[i].ptr, S->creds[i].nbytes);
+		free(S->creds[i].ptr);
+	}
+	free(S->creds);
+	S->creds = NULL;
+	S->ncreds = 0;
+}
+
+static void
+set_credential(const void *credential_id, size_t ncredential_id)
+{
+
+	S->ncreds = 1;
+	if ((S->creds = calloc(1, sizeof(S->creds[0]))) == NULL)
+		err(1, "calloc");
+	if ((S->creds[0].ptr = malloc(ncredential_id)) == NULL)
+		err(1, "malloc");
+	memcpy(S->creds[0].ptr, credential_id, ncredential_id);
+	S->creds[0].nbytes = ncredential_id;
+}
+
+static void
 set_credentials(sqlite3 *db)
 {
 	int64_t dv[2], n;
@@ -864,7 +1000,7 @@ top:	/*
 	/* Allocate an array of that many credential ids.  */
 	S->ncreds = (size_t)n;
 	if ((S->creds = calloc(S->ncreds, sizeof(S->creds[0]))) == NULL)
-		err(1, "malloc");
+		err(1, "calloc");
 
 	/* Fill up the array.  */
 	if (sqlite3_prepare_v2(db, "SELECT credential_id FROM entry", -1,
@@ -941,7 +1077,7 @@ do_get(size_t *nsecretp, sqlite3 *db)
 	sqlite3_stmt *stmt = NULL;
 	const void *ciphertext;
 	int nciphertext;
-	void *secret = NULL;
+	unsigned char *secret = NULL;
 	size_t nsecret = 0;
 	int error;
 
@@ -983,13 +1119,9 @@ do_get(size_t *nsecretp, sqlite3 *db)
 	 * Verify and decrypt the ciphertext using the `key' derived
 	 * from the assertion.
 	 */
-	if ((size_t)nciphertext < FIDOCRYPT_OVERHEADBYTES)
-		errx(1, "corrupt cryptfile");
-	nsecret = (size_t)nciphertext - FIDOCRYPT_OVERHEADBYTES;
-	if ((secret = malloc(nsecret)) == NULL)
-		err(1, "malloc");
-	if ((error = fido_assert_decrypt(assert, 0, COSE_ES256, secret,
-		    ciphertext, (size_t)nciphertext)) != FIDO_OK)
+	if ((error = fido_assert_decrypt(assert, 0,
+		    ciphertext, (size_t)nciphertext,
+		    &secret, &nsecret)) != FIDO_OK)
 		errx(1, "fido_assert_decrypt: %s", fido_strerr(error));
 
 	/* Release the sqlite3 statement.  */
@@ -1113,7 +1245,7 @@ usage_enroll(void)
 	    "Usage: %s enroll -N <username> -u <userid> [-n <nickname>]\n",
 	    getprogname());
 	fprintf(stderr,
-	    "           [-s <secretfile>] <cryptfile>\n");
+	    "           [-s <secretfile>] [-t <keytype>] <cryptfile>\n");
 	exit(1);
 }
 
@@ -1127,15 +1259,18 @@ cmd_enroll(int argc, char **argv)
 	uint8_t secretbuf[32], *secret = NULL;
 	size_t nsecret = 0;
 	fido_cred_t *cred = NULL;
+	fido_assert_t *assert = NULL;
 	const void *credential_id;
 	size_t ncredential_id;
-	uint8_t *ciphertext;
-	size_t nciphertext;
+	unsigned char *ciphertext = NULL;
+	size_t nciphertext = 0;
+	unsigned char *payload = NULL;
+	size_t npayload = 0;
 	sqlite3_stmt *stmt = NULL;
 	int ch, error = 0;
 
 	/* Parse arguments.  */
-	while ((ch = getopt(argc, argv, "hN:n:s:u:")) != -1) {
+	while ((ch = getopt(argc, argv, "hN:n:s:t:u:")) != -1) {
 		switch (ch) {
 		case 'N':
 			if (S->user_name) {
@@ -1165,6 +1300,29 @@ cmd_enroll(int argc, char **argv)
 				break;
 			}
 			secretfile = optarg;
+			break;
+		case 't':
+			if (S->type) {
+				warnx("specify only one credential type");
+				error = 1;
+				break;
+			}
+			if (strcmp(optarg, "es256-p256") == 0) {
+				/*
+				 * ECDSA w/ SHA-256; with libfido2 this
+				 * also implies NIST P-256.
+				 */
+				S->type = COSE_ES256;
+			} else if (strcmp(optarg, "ed25519") == 0) {
+				/* With libfido2 this implies Ed25519.  */
+				S->type = COSE_EDDSA;
+			} else if (strcmp(optarg, "rs256") == 0) {
+				/* RSASSA-PKCS1-v1_5 using SHA-256 */
+				S->type = COSE_RS256;
+			} else {
+				warnx("unknown credential type");
+				error = 1;
+			}
 			break;
 		case 'u':
 			if (S->user_id) {
@@ -1197,6 +1355,19 @@ cmd_enroll(int argc, char **argv)
 		warnx("specify user id (-u or FIDOCRYPT_USERID)");
 		error = 1;
 	}
+	if (S->type == 0) {
+		/*
+		 * U2F is always ECDSA over NIST P-256, and essentially
+		 * all FIDO2 devices support it, so it's a reasonable
+		 * default.
+		 *
+		 * libfido2 doesn't seem to provide a way to list all
+		 * the algorithms we support, even though CTAP2 devices
+		 * will handle such a list -- we have to request
+		 * exactly one type.
+		 */
+		S->type = COSE_ES256;
+	}
 
 	/* Stop and report usage errors if any.  */
 	if (error)
@@ -1214,6 +1385,9 @@ cmd_enroll(int argc, char **argv)
 	 * when enrolling a new device.
 	 */
 	set_credentials(db);
+
+	/* Set the hmac-secret salt from the database.  */
+	set_hmacsecret_salt(db);
 
 	/*
 	 * Determine the secret.
@@ -1275,17 +1449,27 @@ cmd_enroll(int argc, char **argv)
 	    (ncredential_id = fido_cred_id_len(cred)) == 0)
 		errx(1, "empty credential id");
 
-	/* Allocate a ciphertext buffer.  */
-	if (nsecret > SIZE_MAX - FIDOCRYPT_OVERHEADBYTES)
-		errx(1, "setec astronomy");
-	nciphertext = FIDOCRYPT_OVERHEADBYTES + nsecret;
-	if ((ciphertext = malloc(nciphertext)) == NULL)
-		err(1, "malloc ciphertext");
+	/*
+	 * Verify that the credential worked, and obtain the
+	 * hmac-secret if available.
+	 */
+	clear_credentials();
+	set_credential(credential_id, ncredential_id);
+	MSG("tap key again to verify; waiting...\n");
+	assert = run_thread_per_dev(get_thread);
 
 	/* Encrypt the secret.  */
-	if ((error = fido_cred_encrypt(cred, COSE_ES256, ciphertext, secret,
-		    nsecret)) != FIDO_OK)
+	if ((error = fido_cred_encrypt(cred, assert, 0, secret, nsecret,
+		    &ciphertext, &nciphertext)) != FIDO_OK)
 		errx(1, "fido_cred_encrypt: %s", fido_strerr(error));
+
+	/* Verify the ciphertext just to be sure.  */
+	if ((error = fido_assert_decrypt(assert, 0, ciphertext, nciphertext,
+		    &payload, &npayload)) != FIDO_OK)
+		errx(1, "fido_assert_decrypt: %s", fido_strerr(error));
+	free(payload);
+	payload = NULL;
+	npayload = 0;
 
 	/*
 	 * Store the new ciphertext.
@@ -1415,6 +1599,9 @@ cmd_get(int argc, char **argv)
 
 	/* Set the allowed credentials.  */
 	set_credentials(db);
+
+	/* Set the hmacsecret salt from the database.  */
+	set_hmacsecret_salt(db);
 
 	/* Get the secret.  */
 	MSG("tap key; waiting...\n");
@@ -1751,13 +1938,16 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "Edhqr:v")) != -1) {
+	while ((ch = getopt(argc, argv, "dEHhqr:v")) != -1) {
 		switch (ch) {
+		case 'd':
+			S->debug = S->verbose = true;
+			break;
 		case 'E':
 			S->experimental = true;
 			break;
-		case 'd':
-			S->debug = S->verbose = true;
+		case 'H':
+			S->hmacsecret_disabled = true;
 			break;
 		case 'q':
 			S->quiet = true;

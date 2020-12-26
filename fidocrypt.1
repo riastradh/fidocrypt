@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd December 24, 2020
+.Dd December 26, 2020
 .Dt FIDOCRYPT 1
 .Os
 .Sh NAME
@@ -30,7 +30,7 @@
 .Nd store a short secret in a file encrypted with U2F/FIDO
 .Sh SYNOPSIS
 .Nm
-.Op Fl Edqv
+.Op Fl dEHqv
 .Op Fl r Ar rpid
 .Ar command
 .Op Ar args...
@@ -56,9 +56,6 @@ is a work in progress.
 The file format is not yet stable.
 .Ss Common options
 .Bl -tag -width abcd
-.It Fl E
-Enable reading experimental cryptfile formats.
-Use with care only during development and testing.
 .It Fl d
 Enable debug output: print various internal diagnostics to stderr.
 For additional (and very verbose) debug output including the raw
@@ -66,6 +63,34 @@ U2F/CTAP transactions, which might include secrets, you may also set
 the
 .Ev FIDO_DEBUG
 environment variable.
+.It Fl E
+Enable reading experimental cryptfile formats.
+Use with care only during development and testing.
+.It Fl H
+Disable use of the
+.Li hmac-secret
+extension.
+By default,
+.Nm
+will automatically take advantage of
+.Li hmac-secret
+on any device that supports it.
+This option is useful mainly for testing.
+.Li hmac-secret
+must be enabled or disabled for both
+.Cm fidocrypt enroll
+and
+.Cm fidocrypt get ;
+disabling it for one and enabling it for the other will not work.
+When
+.Li hmac-secret
+is disabled, or with devices that don't support it, only
+.Li ES256
+keys over
+.Li P256
+(that is, ECDSA with SHA-256 over the curve NIST P-256, also known as
+secp256r1)
+are supported.
 .It Fl v
 Enable verbose output: print the vendor and product ids of the devices
 being queried to stderr.
@@ -92,7 +117,7 @@ option takes precedence.
 .El
 .Ss Commands
 .Bl -tag -width abcd
-.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Ar cryptfile
+.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
 Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
 secret with it.
 .Bl -bullet -compact
@@ -132,7 +157,7 @@ secret and create a new cryptfile.
 You will then be prompted to tap a new U2F/FIDO security key, not
 currently enrolled in
 .Ar cryptfile ,
-to enroll.
+to enroll, and then tap it again to verify the enrollment.
 .Pp
 .Sy WARNING :
 If you specify
@@ -173,6 +198,25 @@ and
 .Ev FIDOCRYPT_USERID
 instead; when both the environment variable and the command-line
 argument are specified, the command-line argument takes precedence.
+.Pp
+The option
+.Fl t Ar type
+specifies a credential type.
+The following types are supported:
+.Pp
+.Bl -tag -compact -width "es256-p256"
+.It Li es256-p256
+ECDSA with SHA-256 over the curve NIST P-256.
+.It Li ed25519
+EdDSA over the curve edwards25519 with SHA-512.
+.El
+.Pp
+By default,
+.Nm
+uses
+.Li es256-p256 ;
+essentially all U2F/FIDO devices support it, and it is the only
+credential type supported by U2F-only devices.
 .It Cm get Fl F Ar format Ar cryptfile
 Get the secret stored in the cryptfile and print it to stdout in the
 specified format.
@@ -242,8 +286,11 @@ and can't defend against any attacker who has access to the stored
 secret in the host's memory once decrypted.
 .Pp
 .Nm
-also doesn't defend against a poorly designed U2F/FIDO device that
-exposes the public key in the credential id.
+also doesn't defend against a poorly designed U2F/FIDO device that both
+(a) exposes the public key in the credential id and (b) lacks support
+for the
+.Li hmac-secret
+extension.
 Fortunately, credential ids are almost always either ciphertext
 themselves, encrypted with a secret key stored on the U2F/FIDO device,
 or a random input to a pseudorandom function under a secret key stored
@@ -273,6 +320,7 @@ option.
 % export FIDOCRYPT_RPID=fidocrypt.example.com
 % fidocrypt enroll -N Falken -u falken -n yubi5nano example.crypt
 tap key to enroll; waiting...
+tap key again to verify; waiting...
 % fidocrypt list example.crypt
 1 yubi5nano
 % fidocrypt get example.crypt
@@ -284,6 +332,7 @@ yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
 % fidocrypt enroll -N Falken -u falken -n redsolokey example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
+tap key again to verify; waiting...
 % fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
@@ -370,19 +419,22 @@ enroll a new one.
 .Re
 .Sh CAVEATS
 .Nm
-works only with ECDSA over NIST P-256.
-It cannot be made to work with Ed25519.
-(Fortunately, essentially all U2F/FIDO devices on the market support
-ECDSA over NIST P-256.)
+works only with U2F devices, and with FIDO2 devices that either
+(a) support ECDSA over NIST P-256, or
+(b) support the
+.Li hmac-secret
+extension.
+.Nm
+also only supports ECDSA over NIST P-256 and Ed25519 to date.
+(Fortunately, essentially all U2F/FIDO devices on the market as of 2020
+support ECDSA over NIST P-256 \(em and it is even hard to find ones
+that support any other credential types such as
+.Li RS256 . )
 .Pp
 .Nm
-limits cryptfiles to be 1048576 bytes long, including metadata,
-credential ids, and ciphertexts.
-Usually, with a 32-byte secret, each U2F/FIDO security key requires
-under 200 bytes of storage in the file.
-.Nm
-is not meant for enrolling very large numbers of U2F/FIDO security keys
-\(em you are expected to use a primary key and a handful of backups
-stored in safe places.
+is not meant for storing very large secrets or enrolling very large
+numbers of U2F/FIDO security keys \(em you are expected to use a
+primary key and a handful of backups stored in safe places, to encrypt
+a 32-byte secret key for another purpose.
 .Sh BUGS
 User ids and relying party ids can't have NUL bytes.

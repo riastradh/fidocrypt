@@ -38,6 +38,7 @@
 static const char rp_id[] = "example.com";
 
 static const unsigned char ciphertext[] = {
+	0xa3,0x01,0x02,0x03, 0x26,0x20,0x01,
 	0x77,0xd3,0x66,0xf7, 0xdd,0x59,0x98,0x45,
 	0x58,0x1b,0x5f,0x81, 0x19,0x72,0x75,0x34,
 	0x57,0xb9,0x30,0x36, 0x59,0xf2,0x94,0xbe,
@@ -85,7 +86,8 @@ int
 main(void)
 {
 	fido_assert_t *assert;
-	uint8_t secret[sizeof(ciphertext) - FIDOCRYPT_OVERHEADBYTES];
+	unsigned char *secret = NULL;
+	size_t nsecret = 0;
 	unsigned i;
 	int error;
 
@@ -114,12 +116,13 @@ main(void)
 		errx(1, "fido_assert_set_sig: %s", fido_strerr(error));
 
 	/* Verify the assertion and decrypt the ciphertext.  */
-	if ((error = fido_assert_decrypt(assert, 0, COSE_ES256, secret,
-		    ciphertext, sizeof(ciphertext))) != FIDO_OK)
+	if ((error = fido_assert_decrypt(assert, 0,
+		    ciphertext, sizeof(ciphertext),
+		    &secret, &nsecret)) != FIDO_OK)
 		errx(1, "fido_assert_decrypt: %s", fido_strerr(error));
 
 	/* Print the secret in hex.  */
-	for (i = 0; i < sizeof(secret); i++)
+	for (i = 0; i < nsecret; i++)
 		printf("%02hhx", secret[i]);
 	printf("\n");
 

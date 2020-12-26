@@ -26,15 +26,14 @@
  * SUCH DAMAGE.
  */
 
-#ifndef	FIDOCRYPT_ASSERT_DECRYPT_H
-#define	FIDOCRYPT_ASSERT_DECRYPT_H
+#ifndef	FIDOCRYPT_EDDSA_DECODE_H
+#define	FIDOCRYPT_EDDSA_DECODE_H
 
-#include <stddef.h>
+#include <cbor.h>
+#include <fido/eddsa.h>
 
-#include <fido.h>
+#define	eddsa_pk_decode	fidocrypt_eddsa_pk_decode	/* private */
 
-int fido_assert_decrypt(const fido_assert_t *, size_t,
-    const unsigned char *, size_t,
-    unsigned char **, size_t *);
+int eddsa_pk_decode(const cbor_item_t *, eddsa_pk_t *);
 
-#endif	/* FIDOCRYPT_ASSERT_DECRYPT_H */
+#endif	/* FIDOCRYPT_EDDSA_DECODE_H */

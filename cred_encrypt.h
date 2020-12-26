@@ -30,13 +30,11 @@
 #define	FIDOCRYPT_CRED_ENCRYPT_H
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <fido.h>
 
-#include "fidocrypt.h"
-
-int fido_cred_encrypt(const fido_cred_t *, int,
-    uint8_t[static FIDOCRYPT_OVERHEADBYTES], const uint8_t *, size_t);
+int fido_cred_encrypt(const fido_cred_t *, const fido_assert_t *, size_t,
+    const unsigned char *, size_t,
+    unsigned char **, size_t *);
 
 #endif	/* FIDOCRYPT_CRED_ENCRYPT_H */

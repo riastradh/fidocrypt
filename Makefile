@@ -39,9 +39,11 @@ SRCS_fidocrypt = \
 	assert_decrypt.c \
 	cred_encrypt.c \
 	dae.c \
+	eddsa_decode.c \
 	es256_encode.c \
 	fidocrypt.c \
 	recover.c \
+	rs256_decode.c \
 	# end of SRCS_fidocrypt
 DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.d)
 -include $(DEPS_fidocrypt)
@@ -93,8 +95,10 @@ t_assert_decrypt.out: t_assert_decrypt
 SRCS_t_assert_decrypt = \
 	assert_decrypt.c \
 	dae.c \
+	eddsa_decode.c \
 	es256_encode.c \
 	recover.c \
+	rs256_decode.c \
 	t_assert_decrypt.c \
 	# end of SRCS_t_assert_decrypt
 DEPS_t_assert_decrypt = $(SRCS_t_assert_decrypt:.c=.d)

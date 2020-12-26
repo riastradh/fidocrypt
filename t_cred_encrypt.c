@@ -95,7 +95,8 @@ int
 main(void)
 {
 	fido_cred_t *cred;
-	uint8_t ciphertext[FIDOCRYPT_OVERHEADBYTES + sizeof(secret)];
+	unsigned char *ciphertext = NULL;
+	size_t nciphertext = 0;
 	unsigned i;
 	int error;
 
@@ -128,12 +129,12 @@ main(void)
 		errx(1, "fido_cred_set_authdata_raw: %s", fido_strerr(error));
 
 	/* Encrypt the secret with a key derived from the credential.  */
-	if ((error = fido_cred_encrypt(cred, COSE_ES256, ciphertext,
-		    secret, sizeof(secret))) != FIDO_OK)
+	if ((error = fido_cred_encrypt(cred, NULL, 0, secret, sizeof(secret),
+		    &ciphertext, &nciphertext)) != FIDO_OK)
 		errx(1, "fido_cred_encrypt: %s", fido_strerr(error));
 
 	/* Print the ciphertext in hex.  */
-	for (i = 0; i < sizeof(ciphertext); i++)
+	for (i = 0; i < nciphertext; i++)
 		printf("%02hhx", ciphertext[i]);
 	printf("\n");
 
