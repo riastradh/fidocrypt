@@ -83,11 +83,7 @@ static struct state {
 	unsigned		pending;
 	const fido_dev_info_t	*devlist;
 
-	union {			/* XXX */
-		fido_cred_t		*cred;
-		fido_assert_t		*assert;
-		void			*result;
-	};
+	void			*result;
 	bool			done;
 
 	struct {
