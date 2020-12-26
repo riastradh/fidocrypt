@@ -109,15 +109,19 @@ functions extending the libfido2 API:
   `payloadlen`-byte `payload` and store it in a buffer of
   `ciphertextlen' bytes stored in `ciphertext`.
 
-  For devices supporting the [hmac-secret extension][hmac-secret], if
-  `assert` is an assertion, such as one obtained with
+  For devices supporting the [hmac-secret extension][hmac-secret],
+  `assert` may be an assertion, such as one obtained with
   `fido_dev_get_assert` or derived from webauthn
-  `navigator.credential.get`, then the secret will be incorporated into
-  the derived encryption key.  In order to use this, when querying the
-  authenticator you must first enable the extension, such as with
-  `fido_cred_set_extensions(cred, FIDO_EXT_HMAC_SECRET)` and
-  `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)`, and set
-  the hmac-secret salt, such as with `fido_assert_set_hmac_salt`.
+  `navigator.credential.get`; if the assertion includes an hmac-secret,
+  then it will be incorporated into the derived encryption key.  If
+  `assert` is a null pointer, then no hmac-secret is incorporated.
+
+  In order to use hmac-secret, you must enable the extension and set
+  the hmac-secret salt before querying the authenticator, for example
+  with `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)`, and
+  `fido_assert_set_hmac_salt`.  If you do/don't use hmac-secret with
+  `fido_cred_encrypt` then you respectively must/mustn't also use it
+  with `fido_assert_decrypt`.
 
   You should then store `ciphertext` alongside the credential id of
   `cred` so you can later pass it to `fido_assert_decrypt` to verify an
