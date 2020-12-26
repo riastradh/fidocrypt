@@ -255,7 +255,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx, int cose_alg,
 	 * this is necessary because we don't have access to some parts
 	 * of a fido_assert_t.
 	 */
-	error = fido_assert_verify(assert, 0, cose_alg, pk);
+	error = fido_assert_verify(assert, idx, cose_alg, pk);
 
 out:	if (pk) {
 		switch (cose_alg) {
