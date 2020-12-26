@@ -117,6 +117,23 @@ option takes precedence.
 .El
 .Ss Commands
 .Bl -tag -width abcd
+.It Cm backup Ar cryptfile Ar backup
+Create a backup copy of
+.Ar cryptfile
+at
+.Ar backup .
+This is like
+.Dl cp Ar cryptfile Ar backup
+if there are no concurrent changes to
+.Ar cryptfile ,
+but
+.Cm fidocrypt backup
+will safely make a backup of a snapshot of
+.Ar cryptfile
+even if
+.Cm fidocrypt enroll ,
+.Cm fidocrypt rename ,
+etc., are happening at the same time.
 .It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
 Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
 secret with it.

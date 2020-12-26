@@ -1238,6 +1238,88 @@ delete_id(sqlite3 *db, int64_t id)
 }
 
 static void __dead
+usage_backup(void)
+{
+
+	fprintf(stderr, "Usage: %s backup <cryptfile> <backup>\n",
+	    getprogname());
+	exit(1);
+}
+
+static void
+cmd_backup(int argc, char **argv)
+{
+	const char *cryptfile = NULL, *backupfile = NULL;
+	sqlite3 *odb = NULL, *ndb = NULL;
+	sqlite3_backup *backup = NULL;
+	int64_t appid, ver;
+	int ch, error = 0;
+
+	/* Parse arguments.  */
+	while ((ch = getopt(argc, argv, "h")) != -1) {
+		switch (ch) {
+		case '?':
+		case 'h':
+		default:
+			usage_backup();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+	if (argc != 2)
+		usage_backup();
+	cryptfile = *argv++; argc--;
+	backupfile = *argv++; argc--;
+
+	/* Stop and report usage errors if any.  */
+	if (error)
+		usage_backup();
+
+	/* Open the cryptfile read-only, or fail if it doesn't exist.  */
+	odb = opencrypt(cryptfile, SQLITE_OPEN_READONLY);
+
+	/* Open the backup file read/write and create it.  */
+	if ((error = sqlite3_open_v2(backupfile, &ndb,
+		    SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE, NULL))
+	    != SQLITE_OK)
+		errx(1, "open backup: %s",
+		    ndb ? sqlite3_errmsg(ndb) : sqlite3_errstr(error));
+
+	/* Get the application id and user schema version.  */
+	if (db_exec1int(ndb, "PRAGMA application_id", &appid) != SQLITE_OK)
+		errx(1, "sqlite3 app id: %s", sqlite3_errmsg(ndb));
+	if (db_exec1int(ndb, "PRAGMA user_version", &ver) != SQLITE_OK)
+		errx(1, "sqlite3 user version: %s", sqlite3_errmsg(ndb));
+
+	/*
+	 * If the application id and user schema version are not both
+	 * zero, we appear to be overwriting an existing file, so stop
+	 * here and object.
+	 *
+	 * XXX Is there a better way to get the equivalent of
+	 * O_CREAT|O_EXCL for opening sqlite3 databases?
+	 */
+	if (appid != 0 || ver != 0)
+		errx(1, "backup file already exists");
+
+	/* Backup from odb to ndb.  */
+	if ((backup = sqlite3_backup_init(ndb, "main", odb, "main")) == NULL)
+		errx(1, "sqlite3 backup init: %s", sqlite3_errmsg(ndb));
+	if ((error = sqlite3_backup_step(backup, -1)) != SQLITE_DONE) {
+		if (error == SQLITE_OK)
+			errx(1, "sqlite3 backup step stopped");
+		errx(1, "sqlite3 backup step: %s", sqlite3_errstr(error));
+	}
+	if ((error = sqlite3_backup_finish(backup)) != SQLITE_OK)
+		errx(1, "sqlite3 backup finish: %s", sqlite3_errstr(error));
+
+	/* Close the databases.  */
+	if (sqlite3_close(ndb) != SQLITE_OK)
+		errx(1, "close backup: %s", sqlite3_errmsg(ndb));
+	closecrypt(odb);
+}
+
+static void __dead
 usage_enroll(void)
 {
 
@@ -1372,9 +1454,6 @@ cmd_enroll(int argc, char **argv)
 	/* Stop and report usage errors if any.  */
 	if (error)
 		usage_enroll();
-
-	/* Prevent read/write/execute by anyone but owner.  */
-	umask(0077);
 
 	/* Open the cryptfile if there is one, or create it if not.  */
 	db = opencrypt(cryptfile, SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE);
@@ -1908,6 +1987,8 @@ usage(void)
 	    getprogname());
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Commands:\n");
+	fprintf(stderr, "       %s backup [<options>] <cryptfile> <backup>\n",
+	    getprogname());
 	fprintf(stderr, "       %s enroll [<options>] <cryptfile>\n",
 	    getprogname());
 	fprintf(stderr, "       %s get [<options>] <cryptfile>\n",
@@ -1929,6 +2010,12 @@ main(int argc, char **argv)
 
 	/* Set the program name for getprogname() later on.  */
 	setprogname(argv[0]);
+
+	/*
+	 * Prevent read/write/execute by anyone but owner for all files
+	 * created by this tool -- they contain secrets.
+	 */
+	umask(0077);
 
 	/* Initialize our signal handlers and thread doohickeys.  */
 	signals_init();
@@ -2004,7 +2091,9 @@ main(int argc, char **argv)
 	 * reset getopt(3) before parsing the subcommand arguments.
 	 */
 	optreset = optind = 1;
-	if (strcmp(argv[0], "enroll") == 0)
+	if (strcmp(argv[0], "backup") == 0)
+		cmd_backup(argc, argv);
+	else if (strcmp(argv[0], "enroll") == 0)
 		cmd_enroll(argc, argv);
 	else if (strcmp(argv[0], "get") == 0)
 		cmd_get(argc, argv);
