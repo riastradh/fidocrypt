@@ -248,19 +248,23 @@ passed to
 .It Cm rename Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile Ar newname
 Set a nickname for an existing U2F/FIDO security key enrolled in
 .Ar cryptfile .
+The enrollment may be selected by numeric id with
+.Fl i
+as shown in
+.Cm fidocrypt list
+output, or by nickname with
+.Fl n .
 .It Cm unenroll Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile
 Unenroll a U2F/FIDO security key from
 .Ar cryptfile
 so will no longer pass
 .Cm fidocrypt get .
-The enrollment may be specified by numeric id with
+The enrollment may be selected by numeric id with
 .Fl i
 as shown in
 .Cm fidocrypt list
-output, or by the nickname with
-.Fl n
-that was passed to
-.Cm fidocrypt enroll .
+output, or by nickname with
+.Fl n .
 .El
 .Ss Security properties
 .Bl -bullet
