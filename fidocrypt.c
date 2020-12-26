@@ -874,10 +874,10 @@ opencrypt(const char *path, int flags)
 		/* Ensure there is an hmac-secret salt.  */
 		ensure_hmacsecret_salt(db);
 	} else {
-		if ((uint64_t)abs(ver) > __arraycount(schema))
+		if ((uint64_t)llabs(ver) > __arraycount(schema))
 			errx(1, "unknown cryptfile format (version=%"PRId64")",
 			    ver);
-		if ((uint64_t)abs(ver) < oldest_compatible_version)
+		if ((uint64_t)llabs(ver) < oldest_compatible_version)
 			errx(1, "schema too old (version=%"PRId64")", ver);
 		if (ver < 0) {
 			if (S->experimental)
