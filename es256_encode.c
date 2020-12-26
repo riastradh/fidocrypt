@@ -94,7 +94,7 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 	    (nbytes = BN_bn2bin(y, yb)) < 0 || (size_t)nbytes > sizeof(yb))
 		goto out;
 
-	/* kty(1) [key type] = verify(2) */
+	/* kty(1) [key type] = EC2(2) (two-coordinate elliptic curve point) */
 	if ((ent[i].key = cbor_build_uint8(1)) == NULL ||
 	    (ent[i].value = cbor_build_uint8(2)) == NULL ||
 	    !cbor_map_add(item, ent[i++]))
