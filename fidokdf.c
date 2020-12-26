@@ -127,7 +127,7 @@ readcred(const char *path, uint8_t pkconf[static 32], size_t *ncredential_id)
 	if (fread(header, 8, 1, file) != 1)
 		err(1, "fread header");
 	crc = crc32(header, 8, crc);
-	if (memcmp(header, "FIDOKDFC", 8) != 0)
+	if (CRYPTO_memcmp(header, "FIDOKDFC", 8) != 0)
 		errx(1, "malformed credential header");
 
 	/*

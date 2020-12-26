@@ -106,7 +106,8 @@ es256_recover_decrypt(const void *sig, size_t nsig,
 	/* Verify the signature is canonical.  */
 	if ((derlen = i2d_ECDSA_SIG(sigobj, &der)) < 0)
 		goto out;
-	if (derlen != (int)nsig || memcmp(sig, der, (size_t)derlen) != 0)
+	if (derlen != (int)nsig ||
+	    CRYPTO_memcmp(sig, der, (size_t)derlen) != 0)
 		goto out;
 	OPENSSL_clear_free(der, (size_t)derlen);
 	der = NULL;

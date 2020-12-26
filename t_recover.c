@@ -106,7 +106,7 @@ main(void)
 	der = NULL;
 	derlen = i2d_ECDSA_SIG(sig, &der);
 	if (derlen != sizeof signature ||
-	    memcmp(signature, der, (size_t)derlen) != 0)
+	    CRYPTO_memcmp(signature, der, (size_t)derlen) != 0)
 		errx(1, "noncanonical signature");
 	OPENSSL_free(der);
 
