@@ -55,7 +55,7 @@ disk encryption key.
 is a work in progress.
 The file format is not yet stable.
 .Ss Common options
-.Bl -tag -width abcd
+.Bl -tag -width 6n
 .It Fl d
 Enable debug output: print various internal diagnostics to stderr.
 For additional (and very verbose) debug output including the raw
@@ -116,7 +116,7 @@ environment variable; when both are specified, the
 option takes precedence.
 .El
 .Ss Commands
-.Bl -tag -width abcd
+.Bl -tag -width 6n
 .It Cm backup Ar cryptfile Ar backup
 Create a backup copy of
 .Ar cryptfile
@@ -221,7 +221,7 @@ The option
 specifies a credential type.
 The following types are supported:
 .Pp
-.Bl -tag -compact -width "es256-p256"
+.Bl -tag -width ".Li es256-p256" -compact
 .It Li es256-p256
 ECDSA with SHA-256 over the curve NIST P-256.
 .It Li ed25519
@@ -317,7 +317,7 @@ themselves, encrypted with a secret key stored on the U2F/FIDO device,
 or a random input to a pseudorandom function under a secret key stored
 on the U2F/FIDO device.
 .Sh ENVIRONMENT
-.Bl -tag -width FIDOCRYPT_USERNAME
+.Bl -tag -width ".Ev FIDOCRYPT_USERNAME"
 .It Ev FIDOCRYPT_RPID
 Relying party id.
 Overridden by the
@@ -337,7 +337,7 @@ Overridden by the
 option.
 .El
 .Sh EXAMPLES
-.Bd -literal -offset abcd
+.Bd -literal -offset indent
 $ export FIDOCRYPT_RPID=fidocrypt.example.com
 $ fidocrypt enroll -N Falken -u falken -n yubi5nano example.crypt
 tap key to enroll; waiting...
@@ -370,7 +370,7 @@ with several U2F/FIDO security keys enrolled, using
 as the relying party id, create a
 .Xr cgd 4
 parameters file that combines a password and the fidocrypt secret:
-.Bd -literal -offset abcd
+.Bd -literal -offset indent
 algorithm adiantum;
 iv-method encblkno1;
 keylength 256;
@@ -433,7 +433,7 @@ enroll a new one.
 .%A Angelo Liao
 .%A Rolf Lindemann
 .%A Emil Lundberg
-.%T Web Authentication: An API for accessing Public Key Credentials Level 1
+.%T Web Authentication: \&An API for accessing Public Key Credentials Level 1
 .%D 2019-03-04
 .%Q World Wide Web Consortium
 .%U https://www.w3.org/TR/webauthn-1/
