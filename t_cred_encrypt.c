@@ -97,6 +97,25 @@ typedef struct fido_assert {
 	size_t             stmt_len;     /* number of received assertions */
 } fido_assert_t;
 
+static int
+fido_assert_set_hmac_secret(fido_assert_t *assert, size_t idx,
+    const unsigned char *ptr, size_t len)
+{
+
+	if (idx >= assert->stmt_len)
+		return FIDO_ERR_INVALID_ARGUMENT;
+	if (len != 32 && len != 64)
+		return FIDO_ERR_INVALID_ARGUMENT;
+
+	free(assert->stmt[idx].hmac_secret.ptr);
+	if ((assert->stmt[idx].hmac_secret.ptr = malloc(len)) == NULL)
+		return FIDO_ERR_INTERNAL;
+	memcpy(assert->stmt[idx].hmac_secret.ptr, ptr, len);
+	assert->stmt[idx].hmac_secret.len = len;
+
+	return FIDO_OK;
+}
+
 /* XXX END HORRIBLE KLUDGE */
 
 static const char rp_id[] = "example.com";
@@ -268,12 +287,11 @@ main(void)
 			    != FIDO_OK)
 				errx(1, "fido_assert_set_count: %s",
 				    fido_strerr(error));
-			if ((assert->stmt[0].hmac_secret.ptr = malloc(32))
-			    == NULL)
-				err(1, "malloc");
-			memcpy(assert->stmt[0].hmac_secret.ptr,
-			    C[i].hmacsecret, 32);
-			assert->stmt[0].hmac_secret.len = 32;
+			if ((error = fido_assert_set_hmac_secret(assert, 0,
+				    C[i].hmacsecret, 32))
+			    != FIDO_OK)
+				errx(1, "fido_assert_set_hmac_secret: %s",
+				    fido_strerr(error));
 		}
 
 		/*
