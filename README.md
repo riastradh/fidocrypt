@@ -104,7 +104,7 @@ functions extending the libfido2 API:
   Given a credential, such as one obtained with `fido_dev_make_cred` or
   derived from webauthn `navigator.credential.create`, encrypt the
   `payloadlen`-byte `payload` and store it in a buffer of
-  `ciphertextlen' bytes stored in `ciphertext`.
+  `ciphertextlen` bytes stored in `ciphertext`.
 
   For devices supporting the [hmac-secret extension][hmac-secret],
   `assert` may be an assertion, such as one obtained with
