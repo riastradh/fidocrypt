@@ -57,17 +57,18 @@ The file format is not yet stable.
 .Ss Common options
 .Bl -tag -width Fl
 .It Fl d
-Enable debug output: print various internal diagnostics to stderr.
+Debug output: print various internal diagnostics to stderr.
+.Pp
 For additional (and very verbose) debug output including the raw
 U2F/CTAP transactions, which might include secrets, you may also set
 the
 .Ev FIDO_DEBUG
 environment variable.
 .It Fl E
-Enable reading experimental cryptfile formats.
+Allow experimental cryptfile formats.
 Use with care only during development and testing.
 .It Fl H
-Disable use of the
+Disable the
 .Li hmac-secret
 extension.
 By default,
@@ -76,6 +77,7 @@ will automatically take advantage of
 .Li hmac-secret
 on any device that supports it.
 This option is useful mainly for testing.
+.Pp
 .Li hmac-secret
 must be enabled or disabled for both
 .Cm fidocrypt enroll
@@ -92,20 +94,20 @@ keys over
 secp256r1)
 are supported.
 .It Fl v
-Enable verbose output: print the vendor and product ids of the devices
-being queried to stderr.
+Verbose output: print the vendor and product ids of the devices being
+queried to stderr.
 .It Fl q
 Quiet \(em suppress messages to the tty prompting taps.
 Error messages may still be printed to stderr.
 .It Fl r Ar rpid
 Set the relying party id.
 .Pp
-.Sy WARNING :
 You should set this to a DNS name that identifies the purpose of the
 cryptfile, distinctly from any other U2F/FIDO usage to avoid
 cross-domain attacks.
-Don't set the relying party id to the domain name of any web site that
-you log into with U2F/FIDO.
+.Sy Don't
+set the relying party id to the domain name of any web site that you
+log into with U2F/FIDO.
 .Pp
 Instead of the
 .Fl r
