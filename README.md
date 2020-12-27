@@ -120,7 +120,7 @@ functions extending the libfido2 API:
 
   In order to use hmac-secret, you must enable the extension and set
   the hmac-secret salt before querying the authenticator, for example
-  with `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)`, and
+  with `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)` and
   `fido_assert_set_hmac_salt`.  If you do/don't use hmac-secret with
   `fido_cred_encrypt` then you respectively must/mustn't also use it
   with `fido_assert_decrypt`.
