@@ -68,11 +68,6 @@ secret in a file encrypted with any one of a set of enrolled security
 keys in a file.  (Tested on NetBSD 9.1; fidocrypt.c itself may require
 tweaks for other systems, but the rest should not.)
 
-- N.B.: fidocrypt.c depends on a new function `fido_dev_set_sigmask` in
-  order to query all U2F/FIDO devices at the same time and, once one is
-  chosen, reliably interrupt queries to all the other ones.  See
-  https://github.com/Yubico/libfido2/issues/251 for details.
-
 Example:
 
 ```none
