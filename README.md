@@ -28,14 +28,16 @@ Fidocrypt works with:
 - any U2F key
 - any FIDO2 key using ECDSA over NIST P-256 (i.e., `ES256`/`P-256`,
   in terms of [RFC 8152](https://tools.ietf.org/html/rfc8152))
-- any FIDO2 key with the hmac-secret extension using Ed25519 (i.e.,
-  `EDDSA`/`ED25519`)
+- any FIDO2 key with the hmac-secret extension
 
 This should cover essentially every U2F/FIDO key ever made as of 2020;
 the vast majority support ECDSA over NIST P-256 anyway.
 
 This C implementation of fidocrypt is based on Yubico's
-[libfido2](https://github.com/Yubico/libfido2) library.
+[libfido2](https://github.com/Yubico/libfido2) library.  This
+implemention is limited to ECDSA over NIST P-256 and Ed25519 -- it does
+not (yet) support any other credential types, but this covers the vast
+majority of U2F/FIDO models already.
 
 #### [Protocol description](PROTOCOL.md)
 
