@@ -127,7 +127,7 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 	/* Success!  */
 	ok = 1;
 
-out:	for (i = __arraycount(ent); i --> 0;) {
+out:	for (i = sizeof(ent)/sizeof(ent[0]); i --> 0;) {
 		if (ent[i].value)
 			cbor_decref(&ent[i].value);
 		if (ent[i].key)

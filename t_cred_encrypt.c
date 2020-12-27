@@ -65,7 +65,7 @@ typedef struct fido_authdata {
 	uint8_t       flags;          /* user present/verified */
 	uint32_t      sigcount;       /* signature counter */
 	/* actually longer */
-} __packed fido_authdata_t;
+} __attribute__((packed)) fido_authdata_t;
 
 typedef struct fido_user {
 	fido_blob_t  id;           /* required */
@@ -248,7 +248,7 @@ main(void)
 	/* Initialize libfido2.  */
 	fido_init(0);
 
-	for (i = 0; i < __arraycount(C); i++) {
+	for (i = 0; i < sizeof(C)/sizeof(C[0]); i++) {
 		/* Create the credential and set its parameters.  */
 		if ((cred = fido_cred_new()) == NULL)
 			errx(1, "fido_cred_new");
