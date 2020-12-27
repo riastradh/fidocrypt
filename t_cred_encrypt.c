@@ -37,6 +37,7 @@
 #include "fidocrypt.h"
 #include "cred_encrypt.h"
 
+#ifndef HAVE_FIDO_ASSERT_SET_HMAC_SECRET /* XXX not until libfido2 >1.6.0 */
 /* XXX BEGIN HORRIBLE KLUDGE */
 
 /*
@@ -117,6 +118,7 @@ fido_assert_set_hmac_secret(fido_assert_t *assert, size_t idx,
 }
 
 /* XXX END HORRIBLE KLUDGE */
+#endif
 
 static const char rp_id[] = "example.com";
 

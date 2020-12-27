@@ -312,7 +312,9 @@ enroll_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
 	uint8_t challenge[32];
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	sigset_t mask, omask;
+#endif
 	const fido_dev_info_t *devinfo = NULL;
 	const char *path;
 	fido_dev_t *dev = NULL;
@@ -329,11 +331,13 @@ enroll_thread(void *cookie)
 		goto out;
 	}
 
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	/* Set up signal masks: block SIGUSR1.  */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
 	if ((error = pthread_sigmask(SIG_BLOCK, &mask, &omask)) != 0)
 		errc(1, error, "pthread_sigmask");
+#endif
 
 	/*
 	 * Now that SIGUSR1 is blocked, verify that we aren't done
@@ -363,10 +367,12 @@ enroll_thread(void *cookie)
 		warnx("fido_dev_open: %s", fido_strerr(error));
 		goto out;
 	}
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
 		goto out;
 	}
+#endif
 
 	/* Create a credential and set its parameters.  */
 	if ((cred = fido_cred_new()) == NULL) {
@@ -462,7 +468,9 @@ get_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
 	uint8_t challenge[32];
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	sigset_t mask, omask;
+#endif
 	const fido_dev_info_t *devinfo = NULL;
 	const char *path;
 	fido_dev_t *dev = NULL;
@@ -481,11 +489,13 @@ get_thread(void *cookie)
 		goto out;
 	}
 
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	/* Set up signal masks: block SIGUSR1.  */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
 	if ((error = pthread_sigmask(SIG_BLOCK, &mask, &omask)) != 0)
 		errc(1, error, "pthread_sigmask");
+#endif
 
 	/*
 	 * Now that SIGUSR1 is blocked, verify that we aren't done
@@ -515,10 +525,12 @@ get_thread(void *cookie)
 		warnx("fido_dev_open: %s", fido_strerr(error));
 		goto out;
 	}
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
 		goto out;
 	}
+#endif
 
 	/*
 	 * If this is a FIDO2 device, query it with GETINFO to

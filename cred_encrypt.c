@@ -173,6 +173,7 @@ strip_pk(const fido_cred_t *cred, unsigned char **pkcanonp, size_t *npkcanonp,
 	int error;
 
 	/* Get the authdata.  */
+#ifdef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX not until libfido2 1.6.0 */
 	if ((authdata = (const void *)fido_cred_authdata_raw_ptr(cred))
 	    == NULL) {
 		error = FIDO_ERR_INVALID_ARGUMENT;
@@ -183,6 +184,33 @@ strip_pk(const fido_cred_t *cred, unsigned char **pkcanonp, size_t *npkcanonp,
 		error = FIDO_ERR_INVALID_CREDENTIAL;
 		goto out;
 	}
+#else
+	const unsigned char *authdata_enc;
+	cbor_item_t *authdatacbor;
+	size_t nauthdata_enc;
+
+	if ((authdata_enc = fido_cred_authdata_ptr(cred)) == NULL ||
+	    (nauthdata_enc = fido_cred_authdata_len(cred)) == 0) {
+		error = FIDO_ERR_INVALID_ARGUMENT;
+		goto out;
+	}
+
+	if ((authdatacbor = cbor_load(authdata_enc, nauthdata_enc, &load))
+	    == NULL) {
+		error = FIDO_ERR_INVALID_CREDENTIAL;
+		goto out;
+	}
+
+	if (nauthdata_enc != load.read ||
+	    !cbor_isa_bytestring(authdatacbor) ||
+	    !cbor_bytestring_is_definite(authdatacbor)) {
+		error = FIDO_ERR_INVALID_CREDENTIAL;
+		goto out;
+	}
+
+	authdata = (const void *)cbor_bytestring_handle(authdatacbor);
+	nauthdata = cbor_bytestring_length(authdatacbor);
+#endif
 
 	/* Find the suffix where the credential public key starts.  */
 	if ((ncredid = dec16be(authdata->credentialIdLength_be))
@@ -345,6 +373,10 @@ out:	if (pkstrip)
 		cbor_decref(&pkcanoncbor);
 	if (pkcbor)
 		cbor_decref(&pkcbor);
+#ifndef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX not until libfido2 1.6.0 */
+	if (authdatacbor)
+		cbor_decref(&authdatacbor);
+#endif
 	return error;
 }
 
