@@ -4,6 +4,14 @@ Fidocrypt protocol
 The fidocrypt protocol is purely server-side; there are no changes to
 the client side.
 
+**TODO**: This needs to be updated to incorporate the `hmac-secret`
+extension -- briefly: when the `hmac-secret` extension is available,
+append the CBOR encoding of the HMAC secret bytestring to the SHA-256
+input for key derivation, and allow any public keys (which are stored
+in the clear with the ciphertext), not just ECDSA over NIST P-256
+(which can be recovered from the signature, and so only the algorithm
+parameters are stored in the clear with the ciphertext).
+
 ### Registration
 
 Registration starts as in standard webauthn.  When the client returns a
