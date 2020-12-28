@@ -221,6 +221,21 @@ is incorporated, and
 .Li hmac-secret
 must be disabled when getting an assertion from this device to retrieve
 the secret.
+.Pp
+.Sy N.B. :
+.Fn fido_cred_encrypt
+does not verify the signature in
+.Fa assert ,
+under the assumption it was provided by the same device in the same
+session, e.g. from a script in a web page that calls both
+.Li navigator.credential.create
+and
+.Li navigator.credential.get
+in the same context.
+You may wish to call
+.Fn fido_assert_decrypt
+afterward to verify that the signature in it matches, before storing
+the ciphertext.
 .El
 .Sh RETURN VALUES
 The
