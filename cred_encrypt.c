@@ -431,8 +431,23 @@ fido_cred_encrypt(const fido_cred_t *cred,
 		    &recovery_supported)) != FIDO_OK)
 		return error;
 
-	/* If an assertion was provided, get the HMAC secret from it.  */
+	/*
+	 * If an assertion was provided, verify it and get the HMAC
+	 * secret from it.
+	 */
 	if (assert) {
+		int alg;
+		const void *pk;
+
+		if ((alg = fido_cred_type(cred)) == 0 ||
+		    (pk = fido_cred_pubkey_ptr(cred)) == NULL) {
+			error = FIDO_ERR_INVALID_CREDENTIAL;
+			goto out;
+		}
+		if ((error = fido_assert_verify(assert, idx, alg, pk))
+		    != FIDO_OK)
+			goto out;
+
 		hmac_secret = fido_assert_hmac_secret_ptr(assert, idx);
 		nhmac_secret = fido_assert_hmac_secret_len(assert, idx);
 	}
