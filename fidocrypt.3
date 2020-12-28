@@ -36,9 +36,24 @@ U2F/FIDO encryption library (libfidocrypt, \-lfidocrypt)
 .In fido.h
 .In fidocrypt.h
 .Ft int
-.Fn fido_assert_decrypt "const fido_assert_t *assert" "size_t idx" "const unsigned char *payload" "size_t payloadlen" "unsigned char **ciphertextp" "size_t *ciphertextlenp"
+.Fo fido_assert_decrypt
+.Fa "const fido_assert_t *assert"
+.Fa "size_t idx"
+.Fa "const unsigned char *payload"
+.Fa "size_t payloadlen"
+.Fa "unsigned char **ciphertextp"
+.Fa "size_t *ciphertextlenp"
+.Fc
 .Ft int
-.Fn fido_cred_encrypt "const fido_cred_t *cred" "const fido_assert_t *assert" "size_t idx" "const unsigned char *ciphertext" "size_t ciphertextlen" "unsigned char **payloadp" "size_t payloadlen"
+.Fo fido_cred_encrypt
+.Fa "const fido_cred_t *cred"
+.Fa "const fido_assert_t *assert"
+.Fa "size_t idx"
+.Fa "const unsigned char *ciphertext"
+.Fa "size_t ciphertextlen"
+.Fa "unsigned char **payloadp"
+.Fa "size_t payloadlen"
+.Fc
 .Sh DESCRIPTION
 The
 .Nm
@@ -46,8 +61,7 @@ functions encrypt and decrypt a secret using information obtained
 through U2F/FIDO/Webauthn credential registration and assertion, such
 as (a share of) an encryption key for a user's password vault.
 .Ss Usage model
-.Bl -tag -width Bl
-.It Registration
+.Em Registration
 .Bl -enum
 .It
 Make a credential with a U2F/FIDO device, e.g. using
@@ -97,7 +111,8 @@ separately with
 .Fn fido_cred_encrypt
 .Em does not
 verify device attestations.
-.It Authentication
+.Pp
+.Em Authentication
 .Bl -enum
 .It
 Get an assertion from a U2F/FIDO device, e.g. using
@@ -117,7 +132,6 @@ Call
 .Fn fido_assert_decrypt
 to simultaneously verify the assertion of the credential and decrypt
 the ciphertext.
-.El
 .El
 .Ss Functions
 .Bl -tag -width 6n
@@ -256,7 +270,7 @@ constants on error
 .%A Angelo Liao
 .%A Rolf Lindemann
 .%A Emil Lundberg
-.%T Web Authentication: \&An API for accessing Public Key Credentials Level 1
+.%T Web Authentication: \&An API for accessing Public Key Credentials Level\~1
 .%D 2019-03-04
 .%Q World Wide Web Consortium
 .%U https://www.w3.org/TR/webauthn-1/
