@@ -50,9 +50,8 @@
  *               tag || (payload ^ ChaCha20_subkey(0)).
  *
  *       Decryption and verification are defined the obvious way.  The
- *       tag (or, indeed, any substring of the ciphertext) is a
- *       commitment to the key and the payload as long as HMAC-SHA256
- *       is collision-resistant.
+ *       tag is a commitment to the key and the payload as long as
+ *       HMAC-SHA256 is collision-resistant.
  */
 
 #include "dae.h"
