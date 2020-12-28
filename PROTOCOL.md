@@ -4,14 +4,6 @@ Fidocrypt protocol
 The fidocrypt protocol is purely server-side; there are no changes to
 the client side.
 
-**TODO**: This needs to be updated to incorporate the `hmac-secret`
-extension -- briefly: when the `hmac-secret` extension is available,
-append the CBOR encoding of the HMAC secret bytestring to the SHA-256
-input for key derivation, and allow any public keys (which are stored
-in the clear with the ciphertext), not just ECDSA over NIST P-256
-(which can be recovered from the signature, and so only the algorithm
-parameters are stored in the clear with the ciphertext).
-
 ### Registration
 
 Registration starts as in standard webauthn.  When the client returns a
@@ -23,41 +15,52 @@ Given
 - a server-chosen payload (an arbitrary byte string),
 - a client-furnished `client_data` (a
   [client data](https://www.w3.org/TR/webauthn-1/#client-data) object),
-  and
 - a client-furnished `attestation_object` (an
   [attestation object](https://www.w3.org/TR/webauthn-1/#attestation-object)),
+  and
+- optionally, a 32- or 64-byte `hmac_secret` (with the
+  [hmac-secret extension](https://fidoalliance.org/specs/fido-v2.0-rd-20180702/fido-client-to-authenticator-protocol-v2.0-rd-20180702.html#sctn-hmac-secret-extension);
+  note that this requires getting an attestation from the client with
+  the credential),
 
 first verify the client data and attestation object using the challenge
 as in standard webauthn registration, yielding `auth_data`, an
 [authenticator data](https://www.w3.org/TR/webauthn-1/#authenticator-data)
 object.
 
-Let `credential_id` and `public_key` be the parts of the `auth_data`
-object's attested credential data as byte strings.  Then:
-
-1. Verify that `public_key` is a CBOR dictionary.  Subscripts in the
-   sequel will denote dictionary lookup.
-2. Verify that `public_key` has exactly the integer keys:
-   - `1` (kty)
-   - `3` (alg)
-   - `-1` (curve)
-   - `-2` (x coordinate)
-   - `-3` (y coordinate)
-3. Verify that `public_key[1]` is the integer `2` (kty = verify).
-4. Verify that `public_key[3]` is the integer `-7` (alg = ES256).
-5. Verify that `public_key[-1]` is the integer `1` (curve = P-256).
-6. Verify that `public_key[-2]` is a byte string.  (XXX length?)
-7. Verify that `public_key[-3]` is a byte string.  (XXX length?)
+Then, let `credential_id` and `public_key` be the parts of the
+`auth_data` object's attested credential data as byte strings.  Verify
+that `public_key` is the CBOR encoding, in
+[CTAP2 canonical CBOR encoding
+form](https://fidoalliance.org/specs/fido-v2.0-rd-20180702/fido-client-to-authenticator-protocol-v2.0-rd-20180702.html#ctap2-canonical-cbor-encoding-form),
+of a COSE public key.
 
 Next, compute a 32-byte string `key` by the SHA-256 hash of the
-US-ASCII encoding of the string `FIDOKDF0` followed by the bytes of
-`public_key`.  Let `ciphertext` be the authenticated encryption of the
-payload under `key` with header `public_key` using the deterministic
-authenticated cipher ChaCha20-HMACSHA256-SIV defined below.
+concatenation of:
 
-Finally, erase `client_data`, `attestation_object`, and `auth_data`,
-and return a dictionary mapping `credential_id` to `ciphertext` as a
-set of registered credentials.
+- the US-ASCII encoding of the string `FIDOKDF0`,
+- the bytes of `public_key`, and
+- if `hmac_secret` is provided, the CBOR encoding of `hmac_secret` as a
+  bytestring.
+
+Let `pk_strip` be `public_key`, if it is not an ECDSA public key, or if
+it is an ECDSA public key, then the canonical CBOR encoding of the map
+
+- 1 (kty): 2 (verify)
+- 3 (alg): (the algorithm, e.g. -7 for ES256)
+- -1 (crv): (the curve, e.g. 1 for NIST P-256)
+
+Note that this excludes the coordinates of the point on the curve; call
+this a `stripped public key'.
+
+Let `ciphertext` be `pk_strip` prepended to the authenticated
+encryption of the payload under `key` with associated data `public_key`
+using the deterministic authenticated cipher ChaCha20-HMACSHA256-SIV
+defined below.
+
+Finally, erase `client_data`, `attestation_object`, `auth_data`, and
+`public_key`, and return a dictionary mapping `credential_id` to
+`ciphertext` as a set of registered credentials.
 
 ### Signin
 
@@ -78,24 +81,53 @@ Given
 - a client-furnished signature,
 
 first verify that the credential id is registered and retrieve the
-ciphertext associated with it.
+ciphertext associated with it.  The ciphertext begins with the CTAP2
+canonical CBOR encoding of either a stripped ECDSA public key, or a
+normal public key; decode it.  Discriminate on the resulting public
+key:
 
-Let `message` be the concatenation of `auth_data` and the SHA-256 hash
-of `client_data`.  Apply ECDSA public key recovery to the signature and
-message, yielding two candidate ECDSA public keys (curve points).
+- If it is a stripped ECDSA public key as above (only kty, alg, and
+  crv, no coordinates): Let `message` be the concatenation of
+  `auth_data` and the SHA-256 hash of `client_data`.  Apply ECDSA
+  public key recovery to the signature and message, yielding two
+  candidate ECDSA public keys (curve points).
 
-Next, for each of the two ECDSA public keys in any order, let
-`public_key` be its canonical CBOR COSE encoding, and compute a 32-byte
-string `key` by the SHA-256 hash of the US-ASCII encoding of the string
-`FIDOKDF0` followed by the bytes of `public_key`.  Let `payload` be the
-authenticated decryption of the ciphertext under `key` with header
-`public_key` using the deterministic authenticated cipher
-ChaCha-HMACSHA256-SIV defined below, or reject this public key if it
-fails.  If both public keys fail, and refuse signin.
+  Next, for each of the two ECDSA public keys in any order:
+  Let `public_key` be its COSE representation's CTAP2 canonical CBOR
+  encoding, and compute a 32-byte string `key` by the SHA-256 hash of
+  the concatenation of:
 
-Finally, using the public key for which decryption succeeded, proceed
-to standard webauthn authentication completion (verifying the
-signature, &c.), and return `payload` if it succeeds.
+  - the US-ASCII encoding of the string `FIDOKDF0`,
+  - the bytes of `public_key`, and
+  - if `hmac_secret` is provided, the CBOR encoding of `hmac_secret` as
+    a bytestring.
+
+  Let `payload` be the authenticated decryption of the rest of the
+  ciphertext under `key` with associated data `public_key` using the
+  deterministic authenticated cipher ChaCha-HMACSHA256-SIV defined
+  below, or reject this public key if it fails.  If both public keys
+  fail, and refuse signin.
+
+  Finally, using the public key for which decryption succeeded, proceed
+  to standard webauthn authentication completion (verifying the
+  signature, &c.), and return `payload` if it succeeds.
+
+- Otherwise, if it is a normal public key, call its stored encoding
+  `public_key`.  Apply standard webauthn authentication completion
+  (verify the signature, &c.) under the public key.  Then compute a
+  32-byte string `key` by the SHA-256 hash of the concatenation of:
+
+  - the US-ASCII encoding of the string `FIDOKDF0`,
+  - the bytes of `public_key`, and
+  - if `hmac_secret` is provided, the CBOR encoding of `hmac_secret` as
+    a bytestring.
+
+  Finally, let `payload` be the authenticated decryption of the rest of
+  the ciphertext under `key` with associated data `public_key` using
+  the deterministic authenticated cipher ChaCha-HMACSHA256-SIV defined
+  below and return `payload` if it succeeds, or refuse signin if it
+  fails.
+
 
 ECDSA public key recovery
 -------------------------
@@ -121,6 +153,7 @@ the signature under them other than that the key recovery software is
 functioning correctly.  For public key recovery to be useful, the
 caller must have some way to verify the recovered public key (as it
 does in fidocrypt).
+
 
 ChaCha20-HMACSHA256-SIV
 -----------------------
