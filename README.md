@@ -60,8 +60,21 @@ Other implementations of the same basic idea:
 Usage
 -----
 
-Type `make check` to run the tests, or `make` to also build the example
-programs.
+The following `make` targets are included:
+
+- `make` or `make all` -- build library and example program and run tests
+- `make install` -- install library, example program, and man pages
+- `make check` -- build and run tests
+- `make lib` -- build library
+- `make install-lib` -- install library
+- `make install-shlib` -- install just the shared library, no soname
+  link or header files
+
+The makefile respects the variables `prefix`, `bindir`, `includedir`,
+`libdir`, `mandir`, `man1dir`, `man3dir`, and, for staged installation,
+`DESTDIR`.  The `libdir` (default `$(prefix)/lib`) must match during
+build and install; otherwise the shared library will not be found at
+run-time.
 
 [fidocrypt.c](fidocrypt.c) implements a command that stores a short
 secret in a file encrypted with any one of a set of enrolled security
@@ -97,56 +110,26 @@ $ fidocrypt list example.crypt
 ```
 
 The fidocrypt command is implemented in terms of the following
-functions extending the libfido2 API:
+[libfidocrypt functions](fidocrypt.3) extending the libfido2 API:
 
 - [`fido_cred_encrypt(cred, assert, idx, payload, payloadlen, &ciphertext, &ciphertextlen)`](cred_encrypt.c)
 
   Given a credential, such as one obtained with `fido_dev_make_cred` or
   derived from webauthn `navigator.credential.create`, encrypt the
-  `payloadlen`-byte `payload` and store it in a buffer of
-  `ciphertextlen` bytes stored in `ciphertext`.
-
-  For devices supporting the [hmac-secret extension][hmac-secret],
-  `assert` may be an assertion, such as one obtained with
-  `fido_dev_get_assert` or derived from webauthn
-  `navigator.credential.get`; if the assertion includes an hmac-secret,
-  then it will be incorporated into the derived encryption key.  If
-  `assert` is a null pointer, then no hmac-secret is incorporated.
-
-  In order to use hmac-secret, you must enable the extension and set
-  the hmac-secret salt before querying the authenticator, for example
-  with `fido_assert_set_extensions(assert, FIDO_EXT_HMAC_SECRET)` and
-  `fido_assert_set_hmac_salt`.  If you do/don't use hmac-secret with
-  `fido_cred_encrypt` then you respectively must/mustn't also use it
-  with `fido_assert_decrypt`.
+  payload and return a ciphertext.  Providing nonnull `assert` allows
+  use of the [hmac-secret extension][hmac-secret].
 
   You should then store `ciphertext` alongside the credential id of
-  `cred` so you can later pass it to `fido_assert_decrypt` to verify an
-  authenticator and recover the payload.  You must make sure to _erase_
-  the ‘public key’ in the credential, since for fidocrypt's secrecy
-  properties it must be kept secret; you don't need to keep it around
-  for `fido_assert_verify` -- using `fido_assert_decrypt` (below) will
-  verify an assertion using the ciphertext instead of the public key.
-  Once you are done with `ciphertext`, you must free it with `free`.
-
-  Callers concerned with device attestation are responsible for calling
-  `fido_cred_verify`; `fido_cred_encrypt` does nothing to verify device
-  attestations.
+  `cred` -- and _not_ the public key of `cred` -- so you can later pass
+  it to `fido_assert_decrypt` to verify an authenticator and recover
+  the payload.
 
 - [`fido_assert_decrypt(assert, idx, ciphertext, ciphertextlen, &payload, &payloadlen)`](assert_decrypt.c)
 
   Given an assertion, such as one obtained with `fido_dev_get_assert`
-  or derived from webauthn `navigator.credential.get`, and
-  `ciphertextlen`-byte `ciphertext` associated with the credential id
-  in the assertion as obtained with `fido_cred_encrypt`, verify and
-  decrypt the ciphertext, and store the plaintext in a newly allocated
-  `payloadlen`-byte buffer stored in `payload`, or fail if the
-  assertion does not match.  Once you are done with `payload`, you must
-  free it with `free`.
-
-  If the ciphertext was created with the hmac-secret extension, it must
-  be decrypted with an assertion that was obtained with the hmac-secret
-  extension using the same salt as for creation.
+  or derived from webauthn `navigator.credential.get`, verify the
+  assertion and decrypt the ciphertext, or fail if the assertion does
+  not match the credential.
 
   `fido_assert_decrypt` implies the same authentication security as
   `fido_assert_verify` against a known public key.  **You must _only_

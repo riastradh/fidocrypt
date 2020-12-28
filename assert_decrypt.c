@@ -27,6 +27,7 @@
  */
 
 #include "assert_decrypt.h"
+#include "fidocrypt.h"
 
 #include <limits.h>
 #include <stddef.h>
@@ -47,6 +48,7 @@
 #include "dae.h"
 #include "eddsa_decode.h"
 #include "es256_encode.h"
+#include "export.h"
 #include "recover.h"
 #include "rs256_decode.h"
 
@@ -247,6 +249,7 @@ out:	OPENSSL_cleanse(key, sizeof(key));
 	return error;
 }
 
+EXPORT
 int
 fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
     const unsigned char *ciphertext, size_t nciphertext,

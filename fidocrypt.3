@@ -1,0 +1,276 @@
+.\" Copyright (c) 2020 Taylor R. Campbell
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd December 27, 2020
+.Dt FIDOCRYPT 3
+.Os
+.Sh NAME
+.Nm fidocrypt ,
+.Nm fido_assert_decrypt ,
+.Nm fido_cred_encrypt
+.Nd encrypt a secret with U2F/FIDO
+.Sh LIBRARY
+U2F/FIDO encryption library (libfidocrypt, \-lfidocrypt)
+.Sh SYNOPSIS
+.In fido.h
+.In fidocrypt.h
+.Ft int
+.Fn fido_assert_decrypt "const fido_assert_t *assert" "size_t idx" "const unsigned char *payload" "size_t payloadlen" "unsigned char **ciphertextp" "size_t *ciphertextlenp"
+.Ft int
+.Fn fido_cred_encrypt "const fido_cred_t *cred" "const fido_assert_t *assert" "size_t idx" "const unsigned char *ciphertext" "size_t ciphertextlen" "unsigned char **payloadp" "size_t payloadlen"
+.Sh DESCRIPTION
+The
+.Nm
+functions encrypt and decrypt a secret using information obtained
+through U2F/FIDO/Webauthn credential registration and assertion, such
+as (a share of) an encryption key for a user's password vault.
+.Ss Usage model
+.Bl -tag -width Bl
+.It Registration
+.Bl -enum
+.It
+Make a credential with a U2F/FIDO device, e.g. using
+.Li navigator.credential.create
+in webauthn, or using
+.Xr fido_dev_make_cred 3
+on a client.
+.It
+Optionally, get an assertion from the device with the
+.Li hmac-secret
+extension enabled, e.g. using
+.Li navigator.credential.get
+in webauthn, or using
+.Xr fido_dev_get_assert 3
+on a client.
+.It
+Call
+.Fn fido_cred_encrypt
+with the credential, optionally the assertion, and the payload you wish
+to encrypt so that it cannot be decrypted except with the same U2F/FIDO
+device later on.
+You will be returned a ciphertext, which includes enough information to
+verify an assertion of the credential and recover the plaintext later
+on.
+.It
+Store the ciphertext alongside the credential id so you can retireve it
+later during authentication.
+.Em \&Do not
+store the credential's public key \(em the ciphertext contains enough
+information to verify an assertion during authentication, as if the
+public key had been stored.
+.El
+.Pp
+Typically the payload will be the same for every credential of a single
+user.
+For example, you might store a share of the encryption key for the
+user's password vault, and store the same key for every credential
+registered by the user.
+This way, any one of the user's U2F/FIDO keys can be used (along with a
+share derived from another factor such as a master password) to decrypt
+the password vault.
+.Pp
+You may also wish to verify any device attestation in the credential
+separately with
+.Xr fido_cred_verify 3
+\(em
+.Fn fido_cred_encrypt
+.Em does not
+verify device attestations.
+.It Authentication
+.Bl -enum
+.It
+Get an assertion from a U2F/FIDO device, e.g. using
+.Li navigator.credential.get
+in webauthn, or using
+.Xr fido_dev_get_assert 3
+on a client.
+If
+.Li hmac-secret
+was enabled during registration, it must be enabled during
+authentication too.
+.It
+Retrieve the ciphertext stored for the alleged credential id in the
+assertion.
+.It
+Call
+.Fn fido_assert_decrypt
+to simultaneously verify the assertion of the credential and decrypt
+the ciphertext.
+.El
+.El
+.Ss Functions
+.Bl -tag -width 6n
+.It Fn fido_assert_decrypt assert idx ciphertext ciphertextlen payloadp payloadlenp
+Verify the signature in statement index
+.Fa idx
+of
+.Fa assert
+against the ciphertext
+.Fa ciphertext
+of
+.Fa ciphertextlen
+bytes.
+If the signature matches, decrypt the ciphertext and return its payload
+in a newly allocated buffer in
+.Li * Ns Fa payloadp
+with length in bytes stored in
+.Li * Ns Fa payloadlenp .
+The buffer is allocated with
+.Xr malloc 3
+or equivalent and must be freed with
+.Xr free 3
+when done.
+If the signature does not match or anything else about the assertion
+statement is invalid, return one of the
+.Dv FIDO_ERR_*
+constants to indicate failure.
+.Pp
+.Fn fido_assert_decrypt
+implies the same authentication guarantees as
+.Fn fido_assert_verify
+normally does without
+.Nm ,
+but with
+.Nm ,
+you
+.Em must
+use
+.Fn fido_assert_decrypt
+instead of
+.Fn fido_assert_verify .
+.Pp
+If the ciphertext was created with an assertion made using the
+.Li hmac-secret
+extension during credential registration, then
+.Fa assert
+must also have the
+.Li hmac-secret
+extension, and conversely.
+.It Fn fido_cred_encrypt cred assert idx payload payloadlen ciphertextp ciphertextlenp
+Encrypt a message
+.Fa payload
+of
+.Fa payloadlen
+bytes using the credential in
+.Fa cred ,
+and, if provided, the
+.Li hmac-secret
+in the statement index
+.Fa idx
+of
+.Fa assert .
+Return a newly allocated buffer in
+.Li * Ns Fa ciphertextp
+with a length in bytes in
+.Li * Ns Fa ciphertextlenp .
+The buffer is allocated with
+.Xr malloc 3
+or equivalent and must be freed with
+.Xr free 3
+when done.
+.Pp
+You should store the ciphertext, and
+.Em only
+the ciphertext, to later verify an assertion of the credential with
+.Fn fido_assert_decrypt .
+You
+.Em must not
+store the credential's public key \(em the ciphertext contains enough
+information to verify an assertion during authentication, as if the
+public key had been stored.
+.Pp
+.Fa assert
+may be a null pointer, in which case no
+.Li hmac-secret
+is incorporated, and
+.Li hmac-secret
+must be disabled when getting an assertion from this device to retrieve
+the secret.
+.El
+.Sh RETURN VALUES
+The
+.Fn fido_assert_decrypt
+and
+.Fn fido_cred_encrypt
+functions return
+.Dv FIDO_OK
+on success or one of the
+.Dv FIDO_ERR_*
+constants on error
+(see
+.Xr fido_strerr 3 ) .
+.Sh SEE ALSO
+.Xr fidocrypt 1 ,
+.Xr fido_assert_new 3 ,
+.Xr fido_cred_new 3 ,
+.Xr fido_init 3
+.Rs
+.%A Joseph Birr-Pixton
+.%T Abusing U2F to 'store' keys
+.%D 2015-11-23
+.%U https://jbp.io/2015/11/23/abusing-u2f-to-store-keys.html
+.Re
+.Rs
+.%A Rolf Lindemann
+.%A Vijay Bharadwaj
+.%A Alexei Czeskis
+.%A Michael B. Jones
+.%A Jeff Hodges
+.%A Akshay Kumar
+.%A Christiaan Brand
+.%A Johan Verrept
+.%A Jakob Ehrensv\(:ard
+.%T Client To Authenticator Protocol
+.%D 2017-09-27
+.%Q FIDO Alliance
+.%U https://fidoalliance.org/specs/fido-v2.0-ps-20170927/fido-client-to-authenticator-protocol-v2.0-ps-20170927.html
+.Re
+.Rs
+.%A Dirk Balfanz
+.%A Alexei Czeskis
+.%A Jeff Hodges
+.%A J.C. Jones
+.%A Michael B. Jones
+.%A Akshay Kumar
+.%A Angelo Liao
+.%A Rolf Lindemann
+.%A Emil Lundberg
+.%T Web Authentication: \&An API for accessing Public Key Credentials Level 1
+.%D 2019-03-04
+.%Q World Wide Web Consortium
+.%U https://www.w3.org/TR/webauthn-1/
+.Re
+.Sh CAVEATS
+.Nm
+works only with U2F devices, and with FIDO2 devices that either
+(a) support ECDSA over NIST P-256, or
+(b) support the
+.Li hmac-secret
+extension.
+.Nm
+also only supports ECDSA over NIST P-256 and Ed25519 to date.
+(Fortunately, essentially all U2F/FIDO devices on the market as of 2020
+support ECDSA over NIST P-256 \(em and it is even hard to find ones
+that support any other credential types such as
+.Li RS256 . )

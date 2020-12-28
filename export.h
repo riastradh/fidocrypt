@@ -26,19 +26,13 @@
  * SUCH DAMAGE.
  */
 
-#ifndef	FIDOCRYPT_FIDOCRYPT_H
-#define	FIDOCRYPT_FIDOCRYPT_H
+#ifndef	FIDOCRYPT_EXPORT_H
+#define	FIDOCRYPT_EXPORT_H
 
-#include <stddef.h>
+#ifdef FIDOCRYPT_SHLIB
+#define	EXPORT	__attribute__((visibility("default")))
+#else
+#define	EXPORT	/* nothing */
+#endif
 
-#include <fido.h>
-
-int fido_cred_encrypt(const fido_cred_t *, const fido_assert_t *, size_t,
-    const unsigned char *, size_t,
-    unsigned char **, size_t *);
-
-int fido_assert_decrypt(const fido_assert_t *, size_t,
-    const unsigned char *, size_t,
-    unsigned char **, size_t *);
-
-#endif	/* FIDOCRYPT_FIDOCRYPT_H */
+#endif	/* FIDOCRYPT_EXPORT_H */

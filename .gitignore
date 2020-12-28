@@ -1,11 +1,18 @@
 *.d
 *.o
 *.out
+*.pico
+*.so.[0-9]
+*.so.[0-9].[0-9]
+*.so.[0-9].[0-9].[0-9]
 *~
 
 /fidocrypt
 /fidocrypt*.i
+/fidocrypt.install
 /fidokdf
+/libfidocrypt.a
+/libfidocrypt.so
 /t_assert_decrypt
 /t_assert_kdf
 /t_cred_encrypt

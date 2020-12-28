@@ -45,12 +45,10 @@
 #include <unistd.h>
 
 #include <fido.h>
+#include <fidocrypt.h>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
 #include <sqlite3.h>
-
-#include "assert_decrypt.h"
-#include "cred_encrypt.h"
 
 static const char *schema[] = {
 #include "fidocrypt1.i"

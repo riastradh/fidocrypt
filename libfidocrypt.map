@@ -1,0 +1,9 @@
+FIDOCRYPT_PRIVATE {
+	local: *;
+};
+
+FIDOCRYPT_0.0 {
+	global:
+		fido_assert_decrypt;
+		fido_cred_encrypt;
+};

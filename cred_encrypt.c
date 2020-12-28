@@ -27,6 +27,7 @@
  */
 
 #include "cred_encrypt.h"
+#include "fidocrypt.h"
 
 #include <limits.h>
 #include <stddef.h>
@@ -44,6 +45,7 @@
 
 #include "dae.h"
 #include "es256_encode.h"
+#include "export.h"
 
 /* Webauthn 6.1 Authenticator Data */
 struct authdata {
@@ -395,6 +397,7 @@ hash_hmac_secret(SHA256_CTX *ctx, const void *hmac_secret, size_t nhmac_secret)
 	return 0;
 }
 
+EXPORT
 int
 fido_cred_encrypt(const fido_cred_t *cred,
     const fido_assert_t *assert, size_t idx,
