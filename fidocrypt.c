@@ -841,7 +841,6 @@ opencrypt(const char *path, int flags)
 	sqlite3 *db = NULL;
 	int64_t appid, ver;
 	unsigned i;
-	char *errmsg;
 	int error;
 
 	/* Open the database.  */
@@ -871,14 +870,17 @@ opencrypt(const char *path, int flags)
 	if (ver == 0) {
 		for (i = 0; i < __arraycount(schema); i++) {
 			if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL,
-				&errmsg) != SQLITE_OK)
-				errx(1, "sqlite3 BEGIN IMMEDIATE: %s", errmsg);
-			if (sqlite3_exec(db, schema[i], NULL, NULL, &errmsg)
+				NULL) != SQLITE_OK)
+				errx(1, "sqlite3 BEGIN IMMEDIATE: %s",
+				    sqlite3_errmsg(db));
+			if (sqlite3_exec(db, schema[i], NULL, NULL, NULL)
 			    != SQLITE_OK)
-				errx(1, "sqlite3 schema %u: %s", i, errmsg);
-			if (sqlite3_exec(db, "COMMIT", NULL, NULL, &errmsg)
+				errx(1, "sqlite3 schema %u: %s", i,
+				    sqlite3_errmsg(db));
+			if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL)
 			    != SQLITE_OK)
-				errx(1, "sqlite3 COMMIT: %s", errmsg);
+				errx(1, "sqlite3 COMMIT: %s",
+				    sqlite3_errmsg(db));
 		}
 
 		/* Ensure there is an hmac-secret salt.  */
@@ -913,13 +915,12 @@ opencrypt(const char *path, int flags)
 	 * closecrypt to just commit it.
 	 */
 	if ((flags & SQLITE_OPEN_READWRITE) == SQLITE_OPEN_READWRITE) {
-		if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, &errmsg)
+		if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, NULL)
 		    != SQLITE_OK)
 			errx(1, "%s: sqlite3 BEGIN IMMEDIATE: %s", __func__,
 			    sqlite3_errmsg(db));
 	} else {
-		if (sqlite3_exec(db, "BEGIN", NULL, NULL, &errmsg)
-		    != SQLITE_OK)
+		if (sqlite3_exec(db, "BEGIN", NULL, NULL, NULL) != SQLITE_OK)
 			errx(1, "%s: sqlite3 BEGIN: %s", __func__,
 			    sqlite3_errmsg(db));
 	}
@@ -931,10 +932,9 @@ opencrypt(const char *path, int flags)
 static void
 closecrypt(sqlite3 *db)
 {
-	char *errmsg;
 
 	/* Commit the transaction.  */
-	if (sqlite3_exec(db, "COMMIT", NULL, NULL, &errmsg) != SQLITE_OK)
+	if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
 		errx(1, "%s: sqlite3 COMMIT: %s", __func__,
 		    sqlite3_errmsg(db));
 
