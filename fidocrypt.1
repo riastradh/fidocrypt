@@ -42,9 +42,9 @@ security keys.
 The file is called a
 .Em cryptfile ,
 and any U2F/FIDO security key enrolled in it with
-.Cm fidocrypt enroll
+.Nm Cm enroll
 can be used with
-.Cm fidocrypt get
+.Nm Cm get
 to decrypt the enclosed secret.
 The secret may then be used for other purposes, such as a
 .Xr cgd 4
@@ -80,9 +80,9 @@ This option is useful mainly for testing.
 .Pp
 .Li hmac-secret
 must be enabled or disabled for both
-.Cm fidocrypt enroll
+.Nm Cm enroll
 and
-.Cm fidocrypt get ;
+.Nm Cm get ;
 disabling it for one and enabling it for the other will not work.
 When
 .Li hmac-secret
@@ -129,12 +129,12 @@ This is like
 if there are no concurrent changes to
 .Ar cryptfile ,
 but
-.Cm fidocrypt backup
+.Nm Cm backup
 will safely make a backup of a snapshot of
 .Ar cryptfile
 even if
-.Cm fidocrypt enroll ,
-.Cm fidocrypt rename ,
+.Nm Cm enroll ,
+.Nm Cm rename ,
 etc., are happening at the same time.
 .It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
 Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
@@ -189,16 +189,16 @@ secret as is already stored, so you may end up with a cryptfile that
 stores different secrets for different U2F/FIDO security keys.
 You should use this only in an application that has already gotten the
 stored secret with
-.Cm fidocrypt get
+.Nm Cm get
 and still has it in memory, in order to reduce the amount of device
 tapping.
 .Pp
 The option
 .Fl n Ar nickname
 lets you specify a nickname for the U2F/FIDO security key.
-.Cm fidocrypt list
+.Nm Cm list
 will display the nickname, and you can use the nickname with
-.Cm fidocrypt unenroll .
+.Nm Cm unenroll .
 A nickname must be a UTF-8 string at most 128 bytes long with no
 control characters (Unicode general category Cc, code points U+0000
 through U+001f and U+007f through U+009f).
@@ -263,25 +263,25 @@ List the credentials in
 by internally assigned numeric id and by the optional
 .Ar nickname
 passed to
-.Cm fidocrypt enroll .
+.Nm Cm enroll .
 .It Cm rename Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile Ar newname
 Set a nickname for an existing U2F/FIDO security key enrolled in
 .Ar cryptfile .
 The enrollment may be selected by numeric id with
 .Fl i
 as shown in
-.Cm fidocrypt list
+.Nm Cm list
 output, or by nickname with
 .Fl n .
 .It Cm unenroll Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile
 Unenroll a U2F/FIDO security key from
 .Ar cryptfile
 so will no longer pass
-.Cm fidocrypt get .
+.Nm Cm get .
 The enrollment may be selected by numeric id with
 .Fl i
 as shown in
-.Cm fidocrypt list
+.Nm Cm list
 output, or by nickname with
 .Fl n .
 .El
@@ -297,7 +297,7 @@ cryptfile.
 .It
 An adversary without at least one of the U2F/FIDO devices enrolled in a
 cryptfile can't fool
-.Cm fidocrypt get
+.Nm Cm get
 into passing with it.
 .El
 .Pp
@@ -327,13 +327,13 @@ Overridden by the
 option.
 .It Ev FIDOCRYPT_USERID
 User id for
-.Cm fidocrypt enroll .
+.Nm Cm enroll .
 Overridden by the
 .Fl u
 option.
 .It Ev FIDOCRYPT_USERNAME
 User name for
-.Cm fidocrypt enroll .
+.Nm Cm enroll .
 Overridden by the
 .Fl N
 option.
