@@ -46,6 +46,7 @@
 
 #include <fido.h>
 #include <fidocrypt.h>
+#include <openssl/bio.h>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
 #include <sqlite3.h>
