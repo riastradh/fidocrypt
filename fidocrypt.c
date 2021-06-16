@@ -2057,6 +2057,10 @@ main(int argc, char **argv)
 		case 'v':
 			S->verbose = true;
 			break;
+		case '?':
+		case 'h':
+		default:
+			usage();
 		}
 	}
 	argc -= optind;
@@ -2065,6 +2069,13 @@ main(int argc, char **argv)
 		warnx("missing command");
 		usage();
 	}
+
+	/*
+	 * Print usage message if help requested, even if not all
+	 * necessary arguments or environment variables are set.
+	 */
+	if (strcmp(argv[0], "help") == 0)
+		usage();
 
 	/* Verify we have all the arguments we need.  */
 	if (S->rp_id == NULL &&
