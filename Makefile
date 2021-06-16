@@ -185,6 +185,11 @@ fidocrypt.install: $(SRCS_fidocrypt:.c=.o) libfidocrypt.$(SHLIB_EXT)
 	$(CC) -o $@ $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
 		-L. $(SHLIB_RPATHFLAG)$(libdir) -lfidocrypt -pthread -lsqlite3
 
+# May be useful for self-contained boot images.
+fidocrypt.static: $(SRCS_fidocrypt:.c=.o) libfidocrypt.a
+	$(CC) -o $@ -static $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
+		-L. -lfidocrypt $(LDLIBS_libfidocrypt) -pthread -lsqlite3 -lm
+
 fidocrypt.o: fidocrypt1.i
 
 clean: clean-fidocrypt
