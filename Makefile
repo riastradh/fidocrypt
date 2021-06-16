@@ -24,6 +24,8 @@ INSTALL_MAN = $(INSTALL)
 INSTALL_PROGRAM = $(INSTALL)
 
 MANDOC = mandoc
+PS2PDF = ps2pdf
+ROFF = groff
 
 SHLIB_EXT = so
 SHLIB_LDFLAGS = -shared -Wl,-z,defs
@@ -113,6 +115,29 @@ lint: lint-mandoc
 lint-mandoc: .PHONY
 	$(MANDOC) -Tlint fidocrypt.1 || :
 	$(MANDOC) -Tlint fidocrypt.3 || :
+
+doc: .PHONY
+doc: fidocrypt.1.html
+doc: fidocrypt.1.pdf
+
+fidocrypt.1.html: fidocrypt.1
+	$(MANDOC) -Thtml < fidocrypt.1 > $@.tmp && mv -f $@.tmp $@
+
+fidocrypt.1.ps: fidocrypt.1
+	$(ROFF) -Tps -mdoc < fidocrypt.1 > $@.tmp && mv -f $@.tmp $@
+
+.SUFFIXES: .ps .pdf
+.ps.pdf:
+	$(PS2PDF) $< - > $@.tmp && mv -f $@.tmp $@
+
+clean: clean-doc
+clean-doc: .PHONY
+	-rm -f fidocrypt.1.html
+	-rm -f fidocrypt.1.html.tmp
+	-rm -f fidocrypt.1.pdf
+	-rm -f fidocrypt.1.pdf.tmp
+	-rm -f fidocrypt.1.ps
+	-rm -f fidocrypt.1.ps.tmp
 
 
 # libfidocrypt
