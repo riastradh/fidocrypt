@@ -223,6 +223,7 @@ clean-fidocrypt: .PHONY
 	-rm -f $(SRCS_fidocrypt:.c=.o.d)
 	-rm -f fidocrypt
 	-rm -f fidocrypt.install
+	-rm -f fidocrypt.static
 	-rm -f fidocrypt1.i
 
 
