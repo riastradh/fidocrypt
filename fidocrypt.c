@@ -785,6 +785,68 @@ out:	if (stmt) {
 }
 
 static void
+ensure_rpid(sqlite3 *db)
+{
+	sqlite3_stmt *stmt;
+	int error;
+
+	assert(strlen(S->rp_id) < INT_MAX); /* checked in main */
+
+	if (sqlite3_prepare_v2(db,
+		"INSERT INTO relying_party (id, name) VALUES (0, ?)",
+		-1, &stmt, NULL) != SQLITE_OK)
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	if (sqlite3_bind_text(stmt, 1, S->rp_id, (int)strlen(S->rp_id),
+		SQLITE_STATIC) != SQLITE_OK)
+		errx(1, "%s: sqlite3 bind rp id: %s", __func__,
+		    sqlite3_errmsg(db));
+	if ((error = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (error == SQLITE_ROW)
+			errx(1, "INSERT unexpectedly returned results");
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	sqlite3_finalize(stmt);
+}
+
+static void
+check_rpid(sqlite3 *db)
+{
+	sqlite3_stmt *stmt;
+	const unsigned char *text;
+	int error;
+
+	if (sqlite3_prepare_v2(db,
+		"SELECT name FROM relying_party WHERE id = 0", -1, &stmt, NULL)
+	    != SQLITE_OK) {
+		if (S->experimental) {
+			warnx("missing relying party id");
+			return;
+		}
+		errx(1, "%s: sqlite3 prepare: %s", __func__,
+		    sqlite3_errmsg(db));
+	}
+	if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
+		if (error == SQLITE_DONE) {
+			if (S->experimental) {
+				warnx("missing relying party id");
+				return;
+			}
+			errx(1, "missing relying party id");
+		}
+		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
+	}
+	if ((text = sqlite3_column_text(stmt, 0)) == NULL)
+		errx(1, "%s: missing column 0", __func__);
+	if (strlen((const char *)text) > 254)
+		errx(1, "%s: bogus rpid", __func__);
+	if (strcmp(S->rp_id, (const char *)text) != 0)
+		errx(1, "mismatched relying party id: %s != %s (stored)",
+		    S->rp_id, text);
+	sqlite3_finalize(stmt);
+}
+
+static void
 ensure_hmacsecret_salt(sqlite3 *db)
 {
 	uint8_t hmacsecret_salt[32];
@@ -884,6 +946,9 @@ opencrypt(const char *path, int flags)
 				    sqlite3_errmsg(db));
 		}
 
+		/* Ensure the relying party id is stored.  */
+		ensure_rpid(db);
+
 		/* Ensure there is an hmac-secret salt.  */
 		ensure_hmacsecret_salt(db);
 	} else {
@@ -899,6 +964,9 @@ opencrypt(const char *path, int flags)
 				errx(1, "experimental cryptfile"
 				    " (set -E to force)");
 		}
+
+		/* Verify the relying party id matches.  */
+		check_rpid(db);
 	}
 
 	/*
@@ -2081,6 +2149,23 @@ main(int argc, char **argv)
 	if (S->rp_id == NULL &&
 	    (S->rp_id = getenv("FIDOCRYPT_RPID")) == NULL) {
 		warnx("specify relying party id (-r or FIDOCRYPT_RPID)");
+		error = 1;
+	}
+
+	/*
+	 * Limit the relying party id to 254 octets.  The U2F/FIDO
+	 * specification doesn't seem to impose any limit on the
+	 * length.  For Webauthn, it is required to be a hostname,
+	 * which is limited by the DNS limit on 255 octets including a
+	 * final zero-length label with 1-octet length of 0 for a total
+	 * of 254 octets before the final 0.
+	 *
+	 * If you change this, make sure the length is still below
+	 * INT_MAX so ensure_rpid can safely pass it to
+	 * sqlite3_bind_text which takes an int length.
+	 */
+	if (strlen(S->rp_id) > 254) {
+		warnx("overlong relying party id: %s", S->rp_id);
 		error = 1;
 	}
 

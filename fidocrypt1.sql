@@ -34,6 +34,11 @@ CREATE TABLE entry (
 	ciphertext	BLOB NOT NULL
 );
 
+CREATE TABLE relying_party (
+	id		INTEGER PRIMARY KEY CHECK(id = 0),
+	name		TEXT NOT NULL
+);
+
 CREATE TABLE hmac_secret (
 	id		INTEGER PRIMARY KEY CHECK(id = 0),
 	salt		BLOB NOT NULL CHECK(length(salt) == 32)
