@@ -112,9 +112,12 @@ DBG(const char *fmt, ...)
 {
 	char buf[1024];
 	va_list va;
+	int errno_saved;
 
 	if (!S->debug)
 		return;
+
+	errno_saved = errno;	/* save errno */
 
 	/*
 	 * This is used in a signal handler, so we must use the
@@ -125,6 +128,8 @@ DBG(const char *fmt, ...)
 	va_end(va);
 
 	(void)write(STDERR_FILENO, buf, strlen(buf));
+
+	errno = errno_saved;	/* restore errno */
 }
 
 static int
@@ -227,11 +232,14 @@ nickname_ok(const char *nickname)
 static void
 signal_handler(int signo)
 {
+	int errno_saved = errno;
 
 	DBG("signal %d thread=%p\n", signo, (const void *)pthread_self());
 
 	/* Nothing to do -- just need syscalls to wake with EINTR.  */
 	(void)signo;
+
+	errno = errno_saved;
 }
 
 static void
