@@ -366,6 +366,16 @@ enroll_thread(void *cookie)
 	}
 
 	/* Open the device, and arrange to unblock SIGUSR1 while we wait.  */
+#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX not until libfido >1.9.0 */
+	if ((dev = fido_dev_new_with_info(devinfo)) == NULL) {
+		warnx("fido_dev_new_with_info");
+		goto out;
+	}
+	if ((error = fido_dev_open_with_info(dev)) != FIDO_OK) {
+		warnx("fido_dev_open_with_info: %s", fido_strerr(error));
+		goto out;
+	}
+#else
 	if ((dev = fido_dev_new()) == NULL) {
 		warnx("fido_dev_new");
 		goto out;
@@ -374,6 +384,7 @@ enroll_thread(void *cookie)
 		warnx("fido_dev_open: %s", fido_strerr(error));
 		goto out;
 	}
+#endif
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
@@ -525,6 +536,16 @@ get_thread(void *cookie)
 	}
 
 	/* Open the device, and arrange to unblock SIGUSR1 while we wait.  */
+#ifdef HAVE_FIDO_DEV_WITH_INFO
+	if ((dev = fido_dev_new_with_info(devinfo)) == NULL) {
+		warnx("fido_dev_new_with_info");
+		goto out;
+	}
+	if ((error = fido_dev_open_with_info(dev)) != FIDO_OK) {
+		warnx("fido_dev_open_with_info: %s", fido_strerr(error));
+		goto out;
+	}
+#else
 	if ((dev = fido_dev_new()) == NULL) {
 		warnx("fido_dev_new");
 		goto out;
@@ -533,6 +554,7 @@ get_thread(void *cookie)
 		warnx("fido_dev_open: %s", fido_strerr(error));
 		goto out;
 	}
+#endif
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
