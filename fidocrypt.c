@@ -2196,7 +2196,7 @@ main(int argc, char **argv)
 	 * INT_MAX so ensure_rpid can safely pass it to
 	 * sqlite3_bind_text which takes an int length.
 	 */
-	if (strlen(S->rp_id) > 254) {
+	if (S->rp_id && strlen(S->rp_id) > 254) {
 		warnx("overlong relying party id: %s", S->rp_id);
 		error = 1;
 	}
