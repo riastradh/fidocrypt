@@ -23,6 +23,7 @@ INSTALL_LIB = $(INSTALL)
 INSTALL_MAN = $(INSTALL)
 INSTALL_PROGRAM = $(INSTALL)
 
+TRADCPP = $(CPP) -traditional-cpp
 MANDOC = mandoc
 PS2PDF = ps2pdf
 ROFF = groff
@@ -238,10 +239,9 @@ check-t_softfido: t_softfido.exp t_softfido.out
 t_softfido.out: t_softfido
 	./t_softfido > $@.tmp && mv -f $@.tmp $@
 
-t_softfido: t_softfido.sh.in
 t_softfido: fidocrypt
-	(echo '#!/bin/sh' && \
-	${CPP} -traditional-cpp ${_CPPFLAGS} < t_softfido.sh.in) \
+t_softfido: t_softfido.sh.in
+	(echo '#!/bin/sh' && $(TRADCPP) $(_CPPFLAGS) < t_softfido.sh.in) \
 	> $@.tmp && chmod +x $@.tmp && mv -f $@.tmp $@
 
 clean: clean-t_softfido
