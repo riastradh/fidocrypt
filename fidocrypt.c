@@ -436,7 +436,8 @@ enroll_thread(void *cookie)
 		 * XXX This may block, but it's relatively unlikely
 		 * because fido_dev_cancel only issues tx, not rx.
 		 */
-		if ((error = fido_dev_cancel(dev)) != FIDO_OK)
+		if (fido_dev_is_fido2(dev) &&
+		    (error = fido_dev_cancel(dev)) != FIDO_OK)
 			warnx("fido_dev_cancel: %s", fido_strerr(error));
 		goto out;
 	}
@@ -631,7 +632,8 @@ get_thread(void *cookie)
 		 * XXX This may block, but it's relatively unlikely
 		 * because fido_dev_cancel only issues tx, not rx.
 		 */
-		if ((error = fido_dev_cancel(dev)) != FIDO_OK)
+		if (fido_dev_is_fido2(dev) &&
+		    (error = fido_dev_cancel(dev)) != FIDO_OK)
 			warnx("fido_dev_cancel: %s", fido_strerr(error));
 		goto out;
 	}
