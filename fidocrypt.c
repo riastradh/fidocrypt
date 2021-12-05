@@ -1890,7 +1890,7 @@ usage_rename(void)
 {
 
 	fprintf(stderr,
-	    "Usage: %s rename [-N <id>] [-n <nickname>] <cryptfile>"
+	    "Usage: %s rename [-i <id>] [-n <nickname>] <cryptfile>"
 	    " <newname>\n",
 	    getprogname());
 	exit(1);
@@ -1995,7 +1995,7 @@ usage_unenroll(void)
 {
 
 	fprintf(stderr,
-	    "Usage: %s unenroll [-N <id>] [-n <nickname>] <cryptfile>\n",
+	    "Usage: %s unenroll [-i <id>] [-n <nickname>] <cryptfile>\n",
 	    getprogname());
 	exit(1);
 }
