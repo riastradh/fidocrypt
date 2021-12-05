@@ -1,0 +1,55 @@
+#ifndef HAVE_FIDO_CUSTOM_TRANSPORT
+exec cat t_softfido.exp    # cheat
+#endif
+
+set -Ceu
+
+here="${0%/*}"
+case $here in "/"*);; *) here=$(pwd);; esac
+
+: ${FIDOCRYPT:="$here"/fidocrypt}
+
+exec 2>&1       # test warning and error messages too
+
+tmp=
+trap 'cd /; test -n "$tmp" && rm -rf -- "$tmp"' EXIT INT HUP TERM
+tmp=$(mktemp -d -t "${0##*/}")
+
+fidocrypt ()
+{
+	echo >&2 '#' fidocrypt -Eq "$@"
+	$FIDOCRYPT -Eq "$@"
+}
+
+cd -- "$tmp"
+
+head -c 32 </dev/urandom >key1
+head -c 32 </dev/urandom >key2
+head -c 32 </dev/urandom >key3
+
+export FIDOCRYPT_RPID=fidocrypt.example.com
+echo '#' export FIDOCRYPT_RPID="$FIDOCRYPT_RPID"
+
+fidocrypt -S key1 enroll -N Falken -u falken -n key1 crypt
+fidocrypt list crypt
+fidocrypt rename -n key1 crypt key42
+fidocrypt list crypt
+fidocrypt -S key1 get -F raw crypt >secret
+fidocrypt -S key1 get -F raw crypt | cmp secret -
+! fidocrypt -S key2 get -F raw crypt >/dev/null
+! fidocrypt -S key3 get -F raw crypt >/dev/null
+fidocrypt -S key1 -S key2 enroll -N Falken -u falken -n key2 crypt
+fidocrypt list crypt
+fidocrypt -S key1 get -F raw crypt | cmp secret -
+fidocrypt -S key2 get -F raw crypt | cmp secret -
+! fidocrypt -S key3 get -F raw crypt >/dev/null
+fidocrypt unenroll -n key42 crypt
+fidocrypt list crypt
+! fidocrypt -S key1 get -F raw crypt >/dev/null
+fidocrypt -S key2 get -F raw crypt | cmp secret -
+! fidocrypt -S key3 get -F raw crypt >/dev/null
+fidocrypt -S key1 enroll -N Falken -u falken -n key1 -s - crypt <secret
+fidocrypt list crypt
+fidocrypt -S key1 get -F raw crypt | cmp secret -
+fidocrypt -S key2 get -F raw crypt | cmp secret -
+! fidocrypt -S key3 get -F raw crypt >/dev/null

@@ -196,6 +196,7 @@ clean-libfidocrypt: .PHONY
 #
 SRCS_fidocrypt = \
 	fidocrypt.c \
+	softfido.c \
 	# end of SRCS_fidocrypt
 DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.o.d)
 -include $(DEPS_fidocrypt)
@@ -225,6 +226,30 @@ clean-fidocrypt: .PHONY
 	-rm -f fidocrypt.install
 	-rm -f fidocrypt.static
 	-rm -f fidocrypt1.i
+
+
+# softfido test
+#
+check: check-t_softfido
+check-t_softfido: .PHONY
+check-t_softfido: t_softfido.exp t_softfido.out
+	diff -u t_softfido.exp t_softfido.out
+
+t_softfido.out: t_softfido
+	./t_softfido > $@.tmp && mv -f $@.tmp $@
+
+t_softfido: t_softfido.sh.in
+t_softfido: fidocrypt
+	(echo '#!/bin/sh' && \
+	${CPP} -traditional-cpp ${_CPPFLAGS} < t_softfido.sh.in) \
+	> $@.tmp && chmod +x $@.tmp && mv -f $@.tmp $@
+
+clean: clean-t_softfido
+clean-t_softfido: .PHONY
+	-rm -f t_softfido
+	-rm -f t_softfido.out
+	-rm -f t_softfido.out.tmp
+	-rm -f t_softfido.tmp
 
 
 # fidokdf toy

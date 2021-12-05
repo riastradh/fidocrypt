@@ -32,6 +32,7 @@
 .Nm
 .Op Fl dEHqv
 .Op Fl r Ar rpid
+.Op Fl S Ar softfidokey
 .Ar command
 .Op Ar args...
 .Sh DESCRIPTION
@@ -116,6 +117,16 @@ option, you can set the
 environment variable; when both are specified, the
 .Fl r
 option takes precedence.
+.It Fl S Ar softfidokey
+Instead of whatever U2F/FIDO devices are available in the system, use a
+software U2F/FIDO key stored at
+.Ar softfidokey .
+May be specified multiple times to load multiple software keys.
+.Pp
+This option is intended only for internal testing.
+The format of the file
+.Ar softfidokey
+is unstable; consult the implementation for details.
 .El
 .Ss Commands
 .Bl -tag -width Cm

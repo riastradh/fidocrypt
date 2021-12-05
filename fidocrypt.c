@@ -49,6 +49,7 @@
 #include <openssl/bio.h>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
+#include <softfido.h>
 #include <sqlite3.h>
 
 static const char *schema[] = {
@@ -63,6 +64,7 @@ static struct state {
 	bool			debug;
 	bool			experimental;
 	bool			hmacsecret_disabled;
+	bool			softfido;
 	int			type;
 
 	const char		*rp_id;
@@ -386,7 +388,8 @@ enroll_thread(void *cookie)
 	}
 #endif
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
-	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
+	if (!S->softfido &&		/* XXX */
+	    (error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
 		goto out;
 	}
@@ -556,7 +559,8 @@ get_thread(void *cookie)
 	}
 #endif
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
-	if ((error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
+	if (!S->softfido &&		/* XXX */
+	    (error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
 		goto out;
 	}
@@ -688,9 +692,12 @@ run_thread_per_dev(void *(*start)(void *))
 	/* Get the list of devices.  */
 	if ((devlist = fido_dev_info_new(maxndevs)) == NULL)
 		errx(1, "fido_dev_info_new");
-	if ((error = fido_dev_info_manifest(devlist, maxndevs, &ndevs))
-	    != FIDO_OK)
-		errx(1, "fido_dev_info_manifest: %s", fido_strerr(error));
+	if (S->softfido)
+		error = softfido_dev_info_manifest(devlist, maxndevs, &ndevs);
+	else
+		error = fido_dev_info_manifest(devlist, maxndevs, &ndevs);
+	if (error != FIDO_OK)
+		errx(1, "softfido_dev_info_manifest: %s", fido_strerr(error));
 	assert(ndevs <= maxndevs);
 
 	if (S->verbose) {
@@ -2086,6 +2093,34 @@ cmd_unenroll(int argc, char **argv)
 	closecrypt(db);
 }
 
+static void
+readsoftfidokey(const char *path)
+{
+	FILE *F = NULL;
+	uint8_t key[32];
+	int error;
+
+	if ((F = fopen(path, "r")) == NULL)
+		err(1, "failed to open softfido keyfile");
+	if (fread(key, sizeof(key), 1, F) != 1) {
+		if (ferror(F))
+			err(1, "failed to read softfido keyfile");
+		else if (feof(F))
+			errx(1, "truncated softfido keyfile");
+		else
+			errx(1, "inexplicable softfido keyfile read");
+	}
+	fclose(F);
+	F = NULL;
+
+	if ((error = softfido_attach_key(key)) != FIDO_OK) {
+		errx(1, "failed to attach softfido key: %s",
+		    fido_strerr(error));
+	}
+
+	explicit_memset(key, 0, sizeof(key));
+}
+
 static void __dead
 usage(void)
 {
@@ -2132,7 +2167,7 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "dEHhqr:v")) != -1) {
+	while ((ch = getopt(argc, argv, "dEHhqr:S:v")) != -1) {
 		switch (ch) {
 		case 'd':
 			S->debug = S->verbose = true;
@@ -2153,6 +2188,10 @@ main(int argc, char **argv)
 				break;
 			}
 			S->rp_id = optarg;
+			break;
+		case 'S':
+			S->softfido = true;
+			readsoftfidokey(optarg);
 			break;
 		case 'v':
 			S->verbose = true;
@@ -2204,6 +2243,12 @@ main(int argc, char **argv)
 	/* Stop and report usage errors if any.  */
 	if (error)
 		usage();
+
+	/* Issue a warning if softfido is involved.  */
+	if (S->softfido) {
+		warnx("WARNING: softfido keyfiles are raw 32 bytes");
+		warnx("WARNING: softfido format subject to change");
+	}
 
 	/* Open the tty for messages if not quiet.  */
 	if (S->quiet) {
