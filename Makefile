@@ -203,7 +203,7 @@ DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.o.d)
 # Can be run out of build tree.
 fidocrypt: $(SRCS_fidocrypt:.c=.o) libfidocrypt.$(SHLIB_EXT)
 	$(CC) -o $@ $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
-		-L. $(SHLIB_RPATHFLAG). -lfidocrypt -pthread -lsqlite3
+		-L. $(SHLIB_RPATHFLAG)"$$(pwd)" -lfidocrypt -pthread -lsqlite3
 
 # Requires libfidocrypt to be installed in order to run.
 fidocrypt.install: $(SRCS_fidocrypt:.c=.o) libfidocrypt.$(SHLIB_EXT)
