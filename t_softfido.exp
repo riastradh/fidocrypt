@@ -10,6 +10,11 @@ fidocrypt: WARNING: experimental cryptfile
 # fidocrypt -Eq list crypt
 fidocrypt: WARNING: experimental cryptfile
 1 key42
+# fidocrypt -Eq -S key1 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key1 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
@@ -36,10 +41,20 @@ fidocrypt: WARNING: experimental cryptfile
 fidocrypt: WARNING: experimental cryptfile
 2 key2
 1 key42
+# fidocrypt -Eq -S key1 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key1 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
 fidocrypt: WARNING: experimental cryptfile
+# fidocrypt -Eq -S key2 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key2 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
@@ -59,6 +74,11 @@ fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
 fidocrypt: WARNING: experimental cryptfile
 fidocrypt: no matching devices found
+# fidocrypt -Eq -S key2 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key2 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
@@ -77,10 +97,20 @@ fidocrypt: supplied secret may not match stored secrets
 fidocrypt: WARNING: experimental cryptfile
 3 key1
 2 key2
+# fidocrypt -Eq -S key1 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key1 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
 fidocrypt: WARNING: experimental cryptfile
+# fidocrypt -Eq -S key2 get -F base64 crypt
+fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
+fidocrypt: WARNING: softfido format subject to change
+fidocrypt: WARNING: experimental cryptfile
+kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s=
 # fidocrypt -Eq -S key2 get -F raw crypt
 fidocrypt: WARNING: softfido keyfiles are raw 32 bytes
 fidocrypt: WARNING: softfido format subject to change
