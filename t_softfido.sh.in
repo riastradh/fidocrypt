@@ -30,7 +30,9 @@ head -c 32 </dev/urandom >key3
 export FIDOCRYPT_RPID=fidocrypt.example.com
 echo '#' export FIDOCRYPT_RPID="$FIDOCRYPT_RPID"
 
-fidocrypt -S key1 enroll -N Falken -u falken -n key1 crypt
+echo kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s= \
+| openssl base64 -d \
+| fidocrypt -S key1 enroll -N Falken -u falken -n key1 -s - crypt
 fidocrypt list crypt
 fidocrypt rename -n key1 crypt key42
 fidocrypt list crypt
