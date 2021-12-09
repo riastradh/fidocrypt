@@ -37,6 +37,7 @@ fidocrypt list crypt
 fidocrypt rename -n key1 crypt key42
 fidocrypt list crypt
 fidocrypt -S key1 get -F base64 crypt
+fidocrypt -S key1 get -F raw crypt | openssl base64
 fidocrypt -S key1 get -F raw crypt >secret
 fidocrypt -S key1 get -F raw crypt | cmp secret -
 ! fidocrypt -S key2 get -F raw crypt >/dev/null
@@ -44,20 +45,25 @@ fidocrypt -S key1 get -F raw crypt | cmp secret -
 fidocrypt -S key1 -S key2 enroll -N Falken -u falken -n key2 crypt
 fidocrypt list crypt
 fidocrypt -S key1 get -F base64 crypt
+fidocrypt -S key1 get -F raw crypt | openssl base64
 fidocrypt -S key1 get -F raw crypt | cmp secret -
 fidocrypt -S key2 get -F base64 crypt
+fidocrypt -S key2 get -F raw crypt | openssl base64
 fidocrypt -S key2 get -F raw crypt | cmp secret -
 ! fidocrypt -S key3 get -F raw crypt >/dev/null
 fidocrypt unenroll -n key42 crypt
 fidocrypt list crypt
 ! fidocrypt -S key1 get -F raw crypt >/dev/null
 fidocrypt -S key2 get -F base64 crypt
+fidocrypt -S key2 get -F raw crypt | openssl base64
 fidocrypt -S key2 get -F raw crypt | cmp secret -
 ! fidocrypt -S key3 get -F raw crypt >/dev/null
 fidocrypt -S key1 enroll -N Falken -u falken -n key1 -s - crypt <secret
 fidocrypt list crypt
 fidocrypt -S key1 get -F base64 crypt
+fidocrypt -S key1 get -F raw crypt | openssl base64
 fidocrypt -S key1 get -F raw crypt | cmp secret -
 fidocrypt -S key2 get -F base64 crypt
+fidocrypt -S key2 get -F raw crypt | openssl base64
 fidocrypt -S key2 get -F raw crypt | cmp secret -
 ! fidocrypt -S key3 get -F raw crypt >/dev/null
