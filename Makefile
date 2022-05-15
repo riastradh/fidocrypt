@@ -28,6 +28,8 @@ MANDOC = mandoc
 PS2PDF = ps2pdf
 ROFF = groff
 
+COV_CFLAGS = -fprofile-arcs -ftest-coverage
+
 SHLIB_EXT = so
 SHLIB_LDFLAGS = -shared -Wl,-z,defs
 SHLIB_NAMEFLAG = -Wl,-soname=
@@ -93,12 +95,18 @@ install-man: .PHONY
 
 # Suffix rules
 #
-.SUFFIXES: .c .o .pico
+.SUFFIXES: .c
+.SUFFIXES: .covo
+.SUFFIXES: .o
+.SUFFIXES: .pico
+
 .c.o:
 	$(CC) $(_CFLAGS) $(_CPPFLAGS) -c $<
 .c.pico:
 	$(CC) -o $@ $(SHLIB_CFLAGS) $(_CFLAGS) $(_CPPFLAGS) -DFIDOCRYPT_SHLIB \
 		-c $<
+.c.covo:
+	$(CC) -o $@ $(COV_CFLAGS) $(_CFLAGS) $(_CPPFLAGS) -c $<
 
 _CFLAGS = -g -Og -Wall -Wextra -Werror -std=c99 -fvisibility=hidden $(CFLAGS)
 _CPPFLAGS = -MD -MF $@.d -D_POSIX_C_SOURCE=200809L -I. $(CPPFLAGS)
@@ -169,6 +177,9 @@ DEPS_libfidocrypt = $(SRCS_libfidocrypt:.c=.o.d) \
 libfidocrypt.a: $(SRCS_libfidocrypt:.c=.o)
 	$(AR) -rcs $@ $(SRCS_libfidocrypt:.c=.o)
 
+libfidocrypt_cov.a: $(SRCS_libfidocrypt:.c=.covo)
+	$(AR) -rcs $@ $(SRCS_libfidocrypt:.c=.covo)
+
 $(LIB_fidocrypt).$(MINOR_libfidocrypt): $(SRCS_libfidocrypt:.c=.pico)
 $(LIB_fidocrypt).$(MINOR_libfidocrypt): libfidocrypt.$(SHLIB_EXPORT)
 	$(CC) -o $@ $(SHLIB_LDFLAGS) $(LDFLAGS) \
@@ -185,12 +196,18 @@ clean-libfidocrypt: .PHONY
 	-rm -f $(LIB_fidocrypt)
 	-rm -f $(LIB_fidocrypt).$(MINOR_libfidocrypt)
 	-rm -f $(LIB_fidocrypt).$(MINOR_libfidocrypt)
+	-rm -f $(SRCS_libfidocrypt:.c=.c.gcov)
+	-rm -f $(SRCS_libfidocrypt:.c=.covo)
+	-rm -f $(SRCS_libfidocrypt:.c=.covo.d)
+	-rm -f $(SRCS_libfidocrypt:.c=.gcda)
+	-rm -f $(SRCS_libfidocrypt:.c=.gcno)
 	-rm -f $(SRCS_libfidocrypt:.c=.o)
 	-rm -f $(SRCS_libfidocrypt:.c=.o.d)
 	-rm -f $(SRCS_libfidocrypt:.c=.pico)
 	-rm -f $(SRCS_libfidocrypt:.c=.pico.d)
 	-rm -f libfidocrypt.$(SHLIB_EXT)
 	-rm -f libfidocrypt.a
+	-rm -f libfidocrypt_cov.a
 
 
 # fidocrypt tool
@@ -217,13 +234,27 @@ fidocrypt.static: $(SRCS_fidocrypt:.c=.o) libfidocrypt.a
 	$(CC) -o $@ -static $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
 		-L. -lfidocrypt $(LDLIBS_libfidocrypt) -pthread -lsqlite3 -lm
 
+# Code coverage
+fidocrypt.cov: $(SRCS_fidocrypt:.c=.covo) libfidocrypt_cov.a
+	$(CC) -o $@ $(COV_CFLAGS) $(_CFLAGS) $(LDFLAGS) \
+		$(SRCS_fidocrypt:.c=.covo) \
+		-L. -lfidocrypt_cov $(LDLIBS_libfidocrypt) \
+		-pthread -lsqlite3 -lm
+
+fidocrypt.covo: fidocrypt1.i
 fidocrypt.o: fidocrypt1.i
 
 clean: clean-fidocrypt
 clean-fidocrypt: .PHONY
+	-rm -f $(SRCS_fidocrypt:.c=.c.gcov)
+	-rm -f $(SRCS_fidocrypt:.c=.covo)
+	-rm -f $(SRCS_fidocrypt:.c=.covo.d)
+	-rm -f $(SRCS_fidocrypt:.c=.gcda)
+	-rm -f $(SRCS_fidocrypt:.c=.gcno)
 	-rm -f $(SRCS_fidocrypt:.c=.o)
 	-rm -f $(SRCS_fidocrypt:.c=.o.d)
 	-rm -f fidocrypt
+	-rm -f fidocrypt.cov
 	-rm -f fidocrypt.install
 	-rm -f fidocrypt.static
 	-rm -f fidocrypt1.i
@@ -271,6 +302,11 @@ fidokdf: $(SRCS_fidokdf:.c=.o)
 
 clean: clean-fidokdf
 clean-fidokdf: .PHONY
+	-rm -f $(SRCS_fidokdf:.c=.c.gcov)
+	-rm -f $(SRCS_fidokdf:.c=.covo)
+	-rm -f $(SRCS_fidokdf:.c=.covo.d)
+	-rm -f $(SRCS_fidokdf:.c=.gcda)
+	-rm -f $(SRCS_fidokdf:.c=.gcno)
 	-rm -f $(SRCS_fidokdf:.c=.o)
 	-rm -f $(SRCS_fidokdf:.c=.o.d)
 	-rm -f fidokdf
@@ -303,6 +339,11 @@ t_assert_decrypt: $(SRCS_t_assert_decrypt:.c=.o)
 
 clean: clean-assert_decrypt
 clean-assert_decrypt: .PHONY
+	-rm -f $(SRCS_t_assert_decrypt:.c=.c.gcov)
+	-rm -f $(SRCS_t_assert_decrypt:.c=.covo)
+	-rm -f $(SRCS_t_assert_decrypt:.c=.covo.d)
+	-rm -f $(SRCS_t_assert_decrypt:.c=.gcda)
+	-rm -f $(SRCS_t_assert_decrypt:.c=.gcno)
 	-rm -f $(SRCS_t_assert_decrypt:.c=.o)
 	-rm -f $(SRCS_t_assert_decrypt:.c=.o.d)
 	-rm -f t_assert_decrypt
@@ -334,6 +375,11 @@ t_assert_kdf: $(SRCS_t_assert_kdf:.c=.o)
 
 clean: clean-assert_kdf
 clean-assert_kdf: .PHONY
+	-rm -f $(SRCS_t_assert_kdf:.c=.c.gcov)
+	-rm -f $(SRCS_t_assert_kdf:.c=.covo)
+	-rm -f $(SRCS_t_assert_kdf:.c=.covo.d)
+	-rm -f $(SRCS_t_assert_kdf:.c=.gcda)
+	-rm -f $(SRCS_t_assert_kdf:.c=.gcno)
 	-rm -f $(SRCS_t_assert_kdf:.c=.o)
 	-rm -f $(SRCS_t_assert_kdf:.c=.o.d)
 	-rm -f t_assert_kdf
@@ -366,6 +412,11 @@ t_cred_encrypt: $(SRCS_t_cred_encrypt:.c=.o)
 
 clean: clean-cred_encrypt
 clean-cred_encrypt: .PHONY
+	-rm -f $(SRCS_t_cred_encrypt:.c=.c.gcov)
+	-rm -f $(SRCS_t_cred_encrypt:.c=.covo)
+	-rm -f $(SRCS_t_cred_encrypt:.c=.covo.d)
+	-rm -f $(SRCS_t_cred_encrypt:.c=.gcda)
+	-rm -f $(SRCS_t_cred_encrypt:.c=.gcno)
 	-rm -f $(SRCS_t_cred_encrypt:.c=.o)
 	-rm -f $(SRCS_t_cred_encrypt:.c=.o.d)
 	-rm -f t_cred_encrypt
@@ -397,6 +448,11 @@ t_cred_kdf: $(SRCS_t_cred_kdf:.c=.o)
 
 clean: clean-cred_kdf
 clean-cred_kdf: .PHONY
+	-rm -f $(SRCS_t_cred_kdf:.c=.c.gcov)
+	-rm -f $(SRCS_t_cred_kdf:.c=.covo)
+	-rm -f $(SRCS_t_cred_kdf:.c=.covo.d)
+	-rm -f $(SRCS_t_cred_kdf:.c=.gcda)
+	-rm -f $(SRCS_t_cred_kdf:.c=.gcno)
 	-rm -f $(SRCS_t_cred_kdf:.c=.o)
 	-rm -f $(SRCS_t_cred_kdf:.c=.o.d)
 	-rm -f t_cred_kdf
@@ -426,6 +482,11 @@ t_recover: $(SRCS_t_recover:.c=.o)
 
 clean: clean-recover
 clean-recover: .PHONY
+	-rm -f $(SRCS_t_recover:.c=.c.gcov)
+	-rm -f $(SRCS_t_recover:.c=.covo)
+	-rm -f $(SRCS_t_recover:.c=.covo.d)
+	-rm -f $(SRCS_t_recover:.c=.gcda)
+	-rm -f $(SRCS_t_recover:.c=.gcno)
 	-rm -f $(SRCS_t_recover:.c=.o)
 	-rm -f $(SRCS_t_recover:.c=.o.d)
 	-rm -f t_recover
@@ -455,6 +516,11 @@ t_dae: $(SRCS_t_dae:.c=.o)
 
 clean: clean-dae
 clean-dae: .PHONY
+	-rm -f $(SRCS_t_dae:.c=.c.gcov)
+	-rm -f $(SRCS_t_dae:.c=.covo)
+	-rm -f $(SRCS_t_dae:.c=.covo.d)
+	-rm -f $(SRCS_t_dae:.c=.gcda)
+	-rm -f $(SRCS_t_dae:.c=.gcno)
 	-rm -f $(SRCS_t_dae:.c=.o)
 	-rm -f $(SRCS_t_dae:.c=.o.d)
 	-rm -f t_dae

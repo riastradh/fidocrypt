@@ -1,4 +1,8 @@
+*.covo
 *.d
+*.gcda
+*.gcno
+*.gcov
 *.o
 *.out
 *.pico
@@ -10,6 +14,7 @@
 
 /fidocrypt
 /fidocrypt*.i
+/fidocrypt.cov
 /fidocrypt.install
 /fidocrypt.static
 /fidokdf
