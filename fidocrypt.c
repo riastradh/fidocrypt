@@ -536,7 +536,7 @@ get_thread(void *cookie)
 	}
 
 	/* Open the device, and arrange to unblock SIGUSR1 while we wait.  */
-#ifdef HAVE_FIDO_DEV_WITH_INFO
+#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX not until libfido >1.9.0 */
 	if ((dev = fido_dev_new_with_info(devinfo)) == NULL) {
 		warnx("fido_dev_new_with_info");
 		goto out;
