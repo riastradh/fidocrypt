@@ -2085,22 +2085,21 @@ cmd_unenroll(int argc, char **argv)
 static void
 readsoftfidokey(const char *path)
 {
-	FILE *F = NULL;
+	FILE *fp;
 	uint8_t key[32];
 	int error;
 
-	if ((F = fopen(path, "r")) == NULL)
+	if ((fp = fopen(path, "r")) == NULL)
 		err(1, "failed to open softfido keyfile");
-	if (fread(key, sizeof(key), 1, F) != 1) {
-		if (ferror(F))
+	if (fread(key, sizeof(key), 1, fp) != 1) {
+		if (ferror(fp))
 			err(1, "failed to read softfido keyfile");
-		else if (feof(F))
+		else if (feof(fp))
 			errx(1, "truncated softfido keyfile");
 		else
 			errx(1, "inexplicable softfido keyfile read");
 	}
-	fclose(F);
-	F = NULL;
+	fclose(fp);
 
 	if ((error = softfido_attach_key(key)) != FIDO_OK) {
 		errx(1, "failed to attach softfido key: %s",
