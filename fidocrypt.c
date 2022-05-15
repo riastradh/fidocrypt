@@ -2112,7 +2112,7 @@ readsoftfidokey(const char *path)
 		    fido_strerr(error));
 	}
 
-	explicit_memset(key, 0, sizeof(key));
+	OPENSSL_cleanse(key, sizeof(key));
 }
 
 static void __dead
