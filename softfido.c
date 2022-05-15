@@ -54,6 +54,24 @@
 #include <stdint.h>
 #include <string.h>
 
+#if __STDC_VERSION__ >= 201112L
+#include <assert.h>
+#define	CTASSERT(x)	static_assert(x, #x)
+#else
+#ifdef __COUNTER__
+#define	CTASSERT(x)		CTASSERT1(x, ctassert, __COUNTER__)
+#else
+#define	CONCAT(u,v)		u##v
+#define	CTASSERT(x)		CTASSERT0(x, __INCLUDE_LEVEL__, __LINE__)
+#define	CTASSERT0(x,u,v)	CTASSERT1(x, CONCAT(level_,u), CONCAT(line_,v))
+#endif
+#define	CTASSERT1(x,u,v)	CTASSERT2(x,u,v)
+#define	CTASSERT2(x,u,v)						      \
+	struct ctassert_##u##_##v {					      \
+		unsigned int u##v : ((x) ? 1 : -1);			      \
+	}
+#endif
+
 static inline void
 be16enc(void *buf, uint32_t x)
 {
@@ -107,7 +125,7 @@ be32enc(void *buf, uint32_t x)
 struct ctaphid_init_req {
 	uint8_t nonce[8];
 };
-__CTASSERT(sizeof(struct ctaphid_init_req) == 8);
+CTASSERT(sizeof(struct ctaphid_init_req) == 8);
 
 struct ctaphid_init_rep {
 	uint8_t	nonce[8];
@@ -121,7 +139,7 @@ struct ctaphid_init_rep {
 #define	CTAPHID_CAPABILITY_CBOR	0x04
 #define	CTAPHID_CAPABILITY_NMSG	0x08
 };
-__CTASSERT(sizeof(struct ctaphid_init_rep) == 17);
+CTASSERT(sizeof(struct ctaphid_init_rep) == 17);
 
 struct ctaphid_error {
 	uint8_t	code;
@@ -667,7 +685,7 @@ u2f_register(struct softfido *S, uint8_t p1, uint8_t p2,
 	/* Format the reply.  */
 	rep->reserved0 = 0x05;
 	memcpy(rep->pubkey, key.pubkey, sizeof(key.pubkey));
-	__CTASSERT(sizeof(handle) <= UINT8_MAX);
+	CTASSERT(sizeof(handle) <= UINT8_MAX);
 	rep->L = sizeof(handle);
 	memcpy(&rep->stuff[handleoff], &handle, sizeof(handle));
 	memcpy(&rep->stuff[certoff], cert, certlen);
