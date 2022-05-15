@@ -893,8 +893,6 @@ softfido_transport_tx(fido_dev_t *D, uint8_t cmd,
 {
 	struct softfido *S = fido_dev_io_handle(D);
 
-	(void)D;
-
 	/* Paranoia: zero the reply buffer.  */
 	memset(S->reply.buf, 0, sizeof(S->reply.buf));
 
@@ -956,7 +954,6 @@ softfido_transport_rx(fido_dev_t *D, uint8_t cmd,
 	struct softfido *S = fido_dev_io_handle(D);
 	int n;
 
-	(void)D;
 	(void)timeout_ms;
 
 	if (S->replycode != cmd)
