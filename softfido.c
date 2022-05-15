@@ -42,8 +42,6 @@
  *   => cookie(32) || masked-metadata(16) || tag(16)
  */
 
-#define	_NETBSD_SOURCE
-
 #include "softfido.h"
 
 #ifdef HAVE_FIDO_CUSTOM_TRANSPORT
@@ -55,6 +53,26 @@
 #include <err.h>
 #include <stdint.h>
 #include <string.h>
+
+static inline void
+be16enc(void *buf, uint32_t x)
+{
+	uint8_t *p = buf;
+
+	p[0] = x >> 8;
+	p[1] = x;
+}
+
+static inline void
+be32enc(void *buf, uint32_t x)
+{
+	uint8_t *p = buf;
+
+	p[0] = x >> 24;
+	p[1] = x >> 16;
+	p[2] = x >> 8;
+	p[3] = x;
+}
 
 #define	SOFTFIDO_VERSION_MAJOR	0
 #define	SOFTFIDO_VERSION_MINOR	0
@@ -217,6 +235,7 @@ static int softfido_transport_rx(fido_dev_t *, uint8_t,
     unsigned char *, size_t, int);
 
 #include <openssl/hmac.h>
+#include <openssl/crypto.h>
 
 static int
 u2f_derive_token(uint8_t token[32],
@@ -249,7 +268,7 @@ u2f_derive_token(uint8_t token[32],
 	memcpy(token, hash, 32);
 	error = 0;
 
-out:	explicit_memset(hash, 0, sizeof(hash));
+out:	OPENSSL_cleanse(hash, sizeof(hash));
 	if (hmac)
 		HMAC_CTX_free(hmac);
 	return error;
@@ -289,13 +308,14 @@ u2f_handle_kdf(uint8_t seed[const 32],
 	memcpy(tag, hash + 32, 32);
 	error = 0;
 
-out:	explicit_memset(hash, 0, sizeof(hash));
+out:	OPENSSL_cleanse(hash, sizeof(hash));
 	if (hmac)
 		HMAC_CTX_free(hmac);
 	return error;
 }
 
 #include <openssl/ec.h>
+#include <openssl/crypto.h>
 
 struct keyhandle {
 	uint8_t	token[32];
@@ -315,7 +335,7 @@ u2f_key_destroy(struct u2f_key *K)
 	if (K->signkey)
 		EC_KEY_free(K->signkey);
 
-	explicit_memset(K, 0, sizeof(*K));
+	OPENSSL_cleanse(K, sizeof(*K));
 }
 
 static int
@@ -427,7 +447,7 @@ u2f_key_generate(struct softfido *S, struct u2f_key *K, struct keyhandle *H,
 	/* Success!  */
 	error = 0;
 
-out:	explicit_memset(randomization, 0, sizeof(randomization));
+out:	OPENSSL_cleanse(randomization, sizeof(randomization));
 	if (error)
 		u2f_key_destroy(K);
 	return error;
@@ -449,7 +469,7 @@ u2f_key_open(struct softfido *S, struct u2f_key *K,
 		goto out;
 
 	/* Verify the tag.  */
-	if (!consttime_memequal(tag, H->tag, 32)) {
+	if (CRYPTO_memcmp(tag, H->tag, 32) != 0) {
 		error = 1;	/* invalid key handle */
 		goto out;
 	}
@@ -461,8 +481,8 @@ u2f_key_open(struct softfido *S, struct u2f_key *K,
 	/* Success!  */
 	error = 0;
 
-out:	explicit_memset(seed, 0, sizeof(seed));
-	explicit_memset(tag, 0, sizeof(tag));
+out:	OPENSSL_cleanse(seed, sizeof(seed));
+	OPENSSL_cleanse(tag, sizeof(tag));
 	if (error)
 		u2f_key_destroy(K);
 	return error;
@@ -470,6 +490,7 @@ out:	explicit_memset(seed, 0, sizeof(seed));
 
 #include <openssl/ec.h>
 #include <openssl/sha.h>
+#include <openssl/crypto.h>
 
 int
 u2f_sign(void *sig, size_t maxsiglen, size_t *siglenp,
@@ -504,13 +525,14 @@ u2f_sign(void *sig, size_t maxsiglen, size_t *siglenp,
 	error = 0;
 
 out:	if (error)		/* paranoia: don't expose faulty signature */
-		explicit_memset(sig, 0, maxsiglen);
-	explicit_memset(hash, 0, sizeof(hash));
-	explicit_memset(&sha256, 0, sizeof(sha256));
+		OPENSSL_cleanse(sig, maxsiglen);
+	OPENSSL_cleanse(hash, sizeof(hash));
+	OPENSSL_cleanse(&sha256, sizeof(sha256));
 	return error;
 }
 
 #include <openssl/ec.h>
+#include <openssl/crypto.h>
 
 static const unsigned char the_attestation_cert[] = {
 	0x30,0x82,0x01,0x3b,0x30,0x81,0xe1,0x02,
@@ -645,7 +667,7 @@ u2f_register(struct softfido *S, uint8_t p1, uint8_t p2,
 	/* Format the reply.  */
 	rep->reserved0 = 0x05;
 	memcpy(rep->pubkey, key.pubkey, sizeof(key.pubkey));
-	__CTASSERT(sizeof(handle) <= __type_max(__typeof(rep->L)));
+	__CTASSERT(sizeof(handle) <= UINT8_MAX);
 	rep->L = sizeof(handle);
 	memcpy(&rep->stuff[handleoff], &handle, sizeof(handle));
 	memcpy(&rep->stuff[certoff], cert, certlen);
@@ -656,10 +678,10 @@ u2f_register(struct softfido *S, uint8_t p1, uint8_t p2,
 	sw = U2F_SW_NO_ERROR;
 
 out:	u2f_key_destroy(&key);
-	explicit_memset(sig, 0, sizeof(sig));
-	explicit_memset(&sigdata, 0, sizeof(sigdata));
-	explicit_memset(&handle, 0, sizeof(handle));
-	explicit_memset(&key, 0, sizeof(key));
+	OPENSSL_cleanse(sig, sizeof(sig));
+	OPENSSL_cleanse(&sigdata, sizeof(sigdata));
+	OPENSSL_cleanse(&handle, sizeof(handle));
+	OPENSSL_cleanse(&key, sizeof(key));
 	return sw;
 }
 
@@ -768,8 +790,8 @@ u2f_authenticate(struct softfido *S, uint8_t p1, uint8_t p2,
 	/* Success!  */
 	sw = U2F_SW_NO_ERROR;
 
-out:	explicit_memset(&sig, 0, sizeof(sig));
-	explicit_memset(&sigdata, 0, sizeof(sigdata));
+out:	OPENSSL_cleanse(&sig, sizeof(sig));
+	OPENSSL_cleanse(&sigdata, sizeof(sigdata));
 	u2f_key_destroy(&key);
 	return sw;
 }
@@ -810,6 +832,8 @@ u2f_version(struct softfido *S, uint8_t p1, uint8_t p2,
 out:	return sw;
 }
 
+#include <openssl/crypto.h>
+
 static size_t
 softfido_u2f(struct softfido *S,
     const void *reqbuf, size_t reqlen,
@@ -877,7 +901,7 @@ out:	/* Set the status word and return the length.  */
 		 * If adding the status word would overflow the buffer,
 		 * nix the reply and just fail.
 		 */
-		explicit_memset(rep, 0, replen);
+		OPENSSL_cleanse(rep, replen);
 		sw = U2F_SW_INTERNAL_EXCEPTION;
 		replen = 0;
 	}
