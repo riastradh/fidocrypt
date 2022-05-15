@@ -860,13 +860,8 @@ check_rpid(sqlite3 *db)
 		    sqlite3_errmsg(db));
 	}
 	if ((error = sqlite3_step(stmt)) != SQLITE_ROW) {
-		if (error == SQLITE_DONE) {
-			if (S->experimental) {
-				warnx("missing relying party id");
-				return;
-			}
+		if (error == SQLITE_DONE)
 			errx(1, "missing relying party id");
-		}
 		errx(1, "%s: sqlite3 step: %s", __func__, sqlite3_errmsg(db));
 	}
 	if ((text = sqlite3_column_text(stmt, 0)) == NULL)
