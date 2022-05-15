@@ -473,13 +473,10 @@ enroll_thread(void *cookie)
 	/* Success!  */
 	ok = 1;
 
-out:	if (!ok) {
-		if (cred)
-			fido_cred_free(&cred);
-	}
-	cred = done(i, cred, devinfo);
-	if (cred)
+out:	if (!ok)
 		fido_cred_free(&cred);
+	cred = done(i, cred, devinfo);
+	fido_cred_free(&cred);
 	fido_dev_close(dev);
 	fido_dev_free(&dev);
 	return NULL;		/* pthread return value */
@@ -667,13 +664,10 @@ get_thread(void *cookie)
 	/* Success!  */
 	ok = 1;
 
-out:	if (!ok) {
-		if (assert)
-			fido_assert_free(&assert);
-	}
-	assert = done(i, assert, devinfo);
-	if (assert)
+out:	if (!ok)
 		fido_assert_free(&assert);
+	assert = done(i, assert, devinfo);
+	fido_assert_free(&assert);
 	fido_cbor_info_free(&ci);
 	fido_dev_close(dev);
 	fido_dev_free(&dev);
