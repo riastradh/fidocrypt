@@ -247,6 +247,7 @@ t_softfido: t_softfido.sh.in
 clean: clean-t_softfido
 clean-t_softfido: .PHONY
 	-rm -f t_softfido
+	-rm -f t_softfido.d
 	-rm -f t_softfido.out
 	-rm -f t_softfido.out.tmp
 	-rm -f t_softfido.tmp
