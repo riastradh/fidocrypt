@@ -1,6 +1,6 @@
 -- -*- Mode: SQL -*-
 
--- Copyright (c) 2020 Taylor R. Campbell
+-- Copyright (c) 2020-2022 Taylor R. Campbell
 -- All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
