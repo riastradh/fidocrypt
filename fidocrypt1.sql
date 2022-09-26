@@ -25,7 +25,7 @@
 -- SUCH DAMAGE.
 
 PRAGMA application_id = 1178817108;     -- 0x46435254, FCRT
-PRAGMA user_version = -1;
+PRAGMA user_version = 1;
 
 CREATE TABLE entry (
 	id		INTEGER PRIMARY KEY,
