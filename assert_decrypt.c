@@ -473,7 +473,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 
 		/* Verify the assertion.  */
 		if ((error = fido_assert_verify(assert, idx, alg, eddsa_pk))
-		    != 0)
+		    != FIDO_OK)
 			goto out;
 
 		/* Decrypt the ciphertext.  */
@@ -493,7 +493,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 
 		/* Verify the assertion.  */
 		if ((error = fido_assert_verify(assert, idx, alg, rs256_pk))
-		    != 0)
+		    != FIDO_OK)
 			goto out;
 
 		/* Decrypt the ciphertext.  */
