@@ -1191,6 +1191,8 @@ do_get(size_t *nsecretp, sqlite3 *db)
 	/* XXX What to do about more than one assertion?  */
 	if (fido_assert_count(assert) < 1)
 		errx(1, "no assertions");
+	if (fido_assert_count(assert) > 1)
+		warnx("excess assertions: %zu", fido_assert_count(assert));
 
 	/* Get the credential id.  */
 	if ((credential_id = fido_assert_id_ptr(assert, 0)) == NULL ||
