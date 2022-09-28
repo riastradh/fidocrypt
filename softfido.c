@@ -359,7 +359,7 @@ u2f_key_destroy(struct u2f_key *K)
 static int
 u2f_key_expand(struct u2f_key *K, const uint8_t seed[static 32])
 {
-	EC_GROUP *nistp256;
+	EC_GROUP *nistp256 = NULL;
 	BN_CTX *ctx = NULL;
 	BIGNUM *scalar;
 	EC_POINT *point = NULL;
@@ -419,6 +419,8 @@ out:	if (pubkey)
 		EC_POINT_free(point);
 	if (ctx)
 		BN_CTX_free(ctx);
+	if (nistp256)
+		EC_GROUP_free(nistp256);
 	if (error)
 		u2f_key_destroy(K);
 	return error;
