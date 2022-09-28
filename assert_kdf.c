@@ -46,7 +46,7 @@ static int
 es256_recover_kdf(const void *sig, size_t nsig, const void *hash, size_t nhash,
     const uint8_t pkconf[static 32], uint8_t key[static 32], void **pkp)
 {
-	EC_GROUP *nistp256;
+	EC_GROUP *nistp256 = NULL;
 	ECDSA_SIG *sigobj = NULL;
 	const unsigned char *sigptr = sig;
 	EC_KEY *ec_pk[2] = {0,0};
@@ -163,6 +163,8 @@ out:	if (pkcborbuf) {
 		OPENSSL_clear_free(der, (size_t)derlen);
 	if (sigobj)
 		ECDSA_SIG_free(sigobj);
+	if (nistp256)
+		EC_GROUP_free(nistp256);
 	OPENSSL_cleanse(pkhash, sizeof(pkhash));
 	return error;
 }
