@@ -575,7 +575,7 @@ get_thread(void *cookie)
 			warnx("fido_cbor_info_new: %s", fido_strerr(error));
 			goto out;
 		}
-		if ((error = fido_dev_get_cbor_info(dev, ci)) != 0) {
+		if ((error = fido_dev_get_cbor_info(dev, ci)) != FIDO_OK) {
 			warnx("fido_dev_get_cbor_info: %s",
 			    fido_strerr(error));
 			goto out;
