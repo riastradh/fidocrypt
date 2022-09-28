@@ -74,7 +74,7 @@ es256_recover_decrypt(const void *sig, size_t nsig,
     const unsigned char ciphertext[static DAE_TAGBYTES], size_t nciphertext,
     unsigned char *payload, es256_pk_t **pkp)
 {
-	EC_GROUP *nistp256;
+	EC_GROUP *nistp256 = NULL;
 	ECDSA_SIG *sigobj = NULL;
 	const unsigned char *sigptr = sig;
 	EC_KEY *ec_pk[2] = {0,0};
@@ -201,6 +201,8 @@ out:	if (pkcborbuf) {
 		OPENSSL_clear_free(der, (size_t)derlen);
 	if (sigobj)
 		ECDSA_SIG_free(sigobj);
+	if (nistp256)
+		EC_GROUP_free(nistp256);
 	OPENSSL_cleanse(key, sizeof(key));
 	return error;
 }
