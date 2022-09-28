@@ -78,12 +78,15 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 	    (ec_point = EC_KEY_get0_public_key(ec_key)) == NULL)
 		goto out;
 
-	/* Create a bignum context and get the affine x/y coordinates.  */
-	if ((ctx = BN_CTX_new()) == NULL ||
-	    (x = BN_CTX_get(ctx)) == NULL ||
-	    (y = BN_CTX_get(ctx)) == NULL)
+	/* Create a bignum context.  */
+	if ((ctx = BN_CTX_new()) == NULL)
 		goto out;
-	if (!EC_POINT_get_affine_coordinates(ec_group, ec_point, x, y, ctx))
+	BN_CTX_start(ctx);
+
+	/* Get the affine x/y coordinates.  */
+	if ((x = BN_CTX_get(ctx)) == NULL ||
+	    (y = BN_CTX_get(ctx)) == NULL ||
+	    !EC_POINT_get_affine_coordinates(ec_group, ec_point, x, y, ctx))
 		goto out;
 
 	/* Convert the coordinates to big-endian 32-byte strings.  */
@@ -133,8 +136,10 @@ out:	for (i = sizeof(ent)/sizeof(ent[0]); i --> 0;) {
 		if (ent[i].key)
 			cbor_decref(&ent[i].key);
 	}
-	if (ctx)
+	if (ctx) {
+		BN_CTX_end(ctx);
 		BN_CTX_free(ctx);
+	}
 	if (evp_pkey)
 		EVP_PKEY_free(evp_pkey);
 	if (!ok && item)
