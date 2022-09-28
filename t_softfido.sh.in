@@ -35,6 +35,8 @@ echo kOBtmMNyp83mIAbzs+xljmiDa1CcQ9iFz/JiKaIUv5s= \
 | fidocrypt -S key1 enroll -N Falken -u falken -n key1 -s - crypt
 fidocrypt list crypt
 fidocrypt rename -n key1 crypt key42
+fidocrypt rename -i 1 crypt key54
+fidocrypt rename -i 1 crypt key42
 fidocrypt list crypt
 fidocrypt -S key1 get -F base64 crypt
 fidocrypt -S key1 get -F raw crypt | openssl base64

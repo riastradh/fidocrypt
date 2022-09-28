@@ -5,6 +5,8 @@ fidocrypt: WARNING: softfido format subject to change
 # fidocrypt -Eq list crypt
 1 key1
 # fidocrypt -Eq rename -n key1 crypt key42
+# fidocrypt -Eq rename -i 1 crypt key54
+# fidocrypt -Eq rename -i 1 crypt key42
 # fidocrypt -Eq list crypt
 1 key42
 # fidocrypt -Eq -S key1 get -F base64 crypt
