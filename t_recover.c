@@ -65,8 +65,12 @@ show(const char *s, const EC_KEY *pk)
 	BIGNUM *x = NULL, *y = NULL;
 	char *x_hex = NULL, *y_hex = NULL;
 
-	if ((ctx = BN_CTX_new()) == NULL ||
-	    (x = BN_CTX_get(ctx)) == NULL ||
+	if ((ctx = BN_CTX_new()) == NULL) {
+		errx(1, "BN_CTX_new: %s",
+		    ERR_error_string(ERR_get_error(), NULL));
+	}
+	BN_CTX_start(ctx);
+	if ((x = BN_CTX_get(ctx)) == NULL ||
 	    (y = BN_CTX_get(ctx)) == NULL ||
 	    !EC_POINT_get_affine_coordinates(group, A, x, y, NULL) ||
 	    (x_hex = BN_bn2hex(x)) == NULL ||
@@ -78,6 +82,7 @@ show(const char *s, const EC_KEY *pk)
 
 	OPENSSL_free(y_hex);
 	OPENSSL_free(x_hex);
+	BN_CTX_end(ctx);
 	BN_CTX_free(ctx);
 }
 
