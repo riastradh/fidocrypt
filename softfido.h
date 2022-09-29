@@ -34,6 +34,7 @@
 
 #include <fido.h>
 
+void softfido_randomseed(const uint8_t[static 32]);
 int softfido_attach_key(const uint8_t[static 32]);
 int softfido_dev_info_manifest(fido_dev_info_t *, size_t, size_t *);
 

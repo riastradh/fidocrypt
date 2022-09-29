@@ -29,7 +29,6 @@
 /*
  * XXX TODO:
  *
- * - parametrize with random seed so can run deterministically
  * - provide way to keep persistent counter state in file
  * - simulate keepalives
  * - implement fault injection
@@ -221,12 +220,21 @@ struct u2f_authenticate_rep {
 
 #include <fido.h>
 
-#include <openssl/rand.h>
-
 struct softfido {
 	uint8_t masterkey[32];
+
+	/* channel state */
 	uint8_t nonce[8];
+
+	/* signature counter */
 	int (*countsig)(struct softfido *, uint32_t *);
+
+	/* fast key erasure RNG */
+	unsigned nrandom;
+	uint8_t randomnonce[24];
+	uint8_t randombuf[1024];
+
+	/* pending reply */
 	uint8_t replycode;
 	size_t replylen;
 	union {
@@ -237,20 +245,83 @@ struct softfido {
 		uint8_t buf[65536];
 	} reply;
 };
+
+#include <openssl/evp.h>
+
+static uint8_t softfido_seed[32];
+
+void
+softfido_randomseed(const uint8_t seed[static 32])
+{
+
+	memcpy(softfido_seed, seed, 32);
+}
+
+static int
+softfido_randomrefill(struct softfido *S)
+{
+	EVP_CIPHER_CTX *ctx = NULL;
+	int L = 0;
+	unsigned i, c;
+	int error = -1;
+
+	CTASSERT(sizeof(S->randombuf) <= INT_MAX);
+
+	assert(S->nrandom == 0);
+
+	/*
+	 * k := S->randombuf[0..32)
+	 * S->randombuf[0..1024) := ChaCha_k(0)[0..1024)
+	 */
+	if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
+		goto out;
+	if (!EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, S->randombuf,
+		S->randomnonce))
+		goto out;
+	memset(S->randombuf, 0, sizeof(S->randombuf));
+	if (!EVP_EncryptUpdate(ctx, S->randombuf, &L, S->randombuf,
+		(int)sizeof(S->randombuf)))
+		goto out;
+	assert(L == (int)sizeof(S->randombuf));
+	if (!EVP_EncryptFinal(ctx, NULL, &L))
+		goto out;
+	assert(L == 0);
+
+	/* Success!  */
+	S->nrandom = sizeof(S->randombuf) - 32;
+	error = 0;
+
+out:	if (ctx)
+		EVP_CIPHER_CTX_free(ctx);
+	/* increment nonce (unconditionally, out of paranoia) */
+	for (i = 0, c = 1; i < sizeof(S->randomnonce); i++) {
+		c += S->randomnonce[i];
+		S->randomnonce[i] = c & 0xff;
+	}
+	return error;
+}
 
 static int
 softfido_randombytes(struct softfido *S, void *buf, size_t len)
 {
+	uint8_t *p = buf;
+	size_t k, n = len;
 
-	(void)S;
-	assert(len <= INT_MAX);
-	return RAND_bytes(buf, len) ? 0 : -1;
+	assert(S->nrandom <= sizeof(S->randombuf) - 32);
+	for (;;) {
+		k = MIN(n, S->nrandom);
+		memcpy(p, &S->randombuf[sizeof(S->randombuf) - S->nrandom], k);
+		memset(&S->randombuf[sizeof(S->randombuf) - S->nrandom], 0, k);
+		S->nrandom -= k;
+		n -= k;
+		if (n == 0)
+			break;
+		if (softfido_randomrefill(S))
+			return -1;
+	}
+
+	return 0;
 }
-
-static int softfido_transport_tx(fido_dev_t *, uint8_t,
-    const unsigned char *, size_t);
-static int softfido_transport_rx(fido_dev_t *, uint8_t,
-    unsigned char *, size_t, int);
 
 #include <openssl/hmac.h>
 #include <openssl/crypto.h>
@@ -1041,6 +1112,7 @@ softfido_io_open(const char *path)
 {
 	uint8_t key[32];
 	struct softfido *S;
+	SHA256_CTX sha256;
 	unsigned i;
 
 	if (strncmp(path, SOFTFIDO_V0, strlen(SOFTFIDO_V0)) != 0)
@@ -1061,6 +1133,12 @@ softfido_io_open(const char *path)
 		return NULL;
 	S->countsig = &countsig;
 	memcpy(S->masterkey, key, 32);
+	S->nrandom = 0;
+	memset(S->randombuf, 0, sizeof(S->randombuf));
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, key, sizeof(key));
+	SHA256_Update(&sha256, softfido_seed, sizeof(softfido_seed));
+	SHA256_Final(S->randombuf, &sha256);
 	return S;
 }
 
@@ -1069,6 +1147,7 @@ softfido_io_close(void *cookie)
 {
 	struct softfido *S = cookie;
 
+	OPENSSL_cleanse(S, sizeof(*S));
 	free(S);
 }
 
@@ -1207,6 +1286,13 @@ softfido_dev_info_manifest(fido_dev_info_t *devlist, size_t nmax, size_t *np)
 }
 
 #else
+
+void
+softfido_randomseed(const uint8_t seed[static 32])
+{
+
+	(void)seed;
+}
 
 int
 softfido_attach_key(const uint8_t key[static 32])
