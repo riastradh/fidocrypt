@@ -79,7 +79,7 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 		goto out;
 
 	/* Create a bignum context.  */
-	if ((ctx = BN_CTX_new()) == NULL)
+	if ((ctx = BN_CTX_secure_new()) == NULL)
 		goto out;
 	BN_CTX_start(ctx);
 
