@@ -31,6 +31,7 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl dEHqv
+.Op Fl D Ar seed
 .Op Fl r Ar rpid
 .Op Fl S Ar softfidokey
 .Ar command
@@ -65,6 +66,18 @@ U2F/CTAP transactions, which might include secrets, you may also set
 the
 .Ev FIDO_DEBUG
 environment variable.
+.It Fl D Ar seed
+Deterministic mode, pseudorandomized by
+.Ar seed .
+Challenges and, with the
+.Fl S
+option, enrolled keys, are deterministically generated from
+.Ar seed .
+.Pp
+Not everything is deterministic: signatures generated with the
+.Fl S
+option are still randomized (bug), and parts of sqlite3 may still be
+randomized too.
 .It Fl E
 Allow experimental cryptfile formats.
 Use with care only during development and testing.

@@ -57,6 +57,13 @@ static const char *schema[] = {
 };
 static unsigned oldest_compatible_version = 1;
 
+/* fast key erasure RNG */
+struct prng {
+	unsigned		nrandom;
+	uint8_t			randomnonce[24];
+	uint8_t			randombuf[1024];
+};
+
 static struct state {
 	int			ttyfd;
 	bool			quiet;
@@ -65,12 +72,15 @@ static struct state {
 	bool			experimental;
 	bool			hmacsecret_disabled;
 	bool			softfido;
+	bool			deterministic;
 	int			type;
 
 	const char		*rp_id;
 	const char		*user_id;
 	const char		*user_name;
 	uint8_t			hmacsecret_salt[32];
+
+	struct prng		prng;
 
 	struct {
 		void			*ptr;
@@ -89,6 +99,7 @@ static struct state {
 
 	struct {
 		pthread_t		pt;
+		struct prng		prng;
 		bool			exited;
 	}			thread[64];
 } state, *S = &state;
@@ -232,6 +243,93 @@ nickname_ok(const char *nickname)
 }
 
 static void
+randomseed(struct prng *P, const uint8_t seed[static 32])
+{
+
+	if (!S->deterministic)
+		return;
+
+	memset(P, 0, sizeof(*P));
+	memcpy(P->randombuf, seed, 32);
+}
+
+static void
+randomrefill(struct prng *P)
+{
+	EVP_CIPHER_CTX *ctx;
+	int L = 0;
+	unsigned i, c;
+
+	assert(sizeof(P->randombuf) <= INT_MAX);
+	assert(S->deterministic);
+	assert(P->nrandom == 0);
+
+	/*
+	 * k := P->randombuf[0..32)
+	 * P->randombuf[0..1024) := ChaCha_k(0)[0..1024)
+	 */
+	if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
+		errx(1, "EVP_CIPHER_CTX_new");
+	if (!EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, P->randombuf,
+		P->randomnonce))
+		errx(1, "EVP_EncryptInit_ex");
+	memset(P->randombuf, 0, sizeof(P->randombuf));
+	if (!EVP_EncryptUpdate(ctx, P->randombuf, &L, P->randombuf,
+		(int)sizeof(P->randombuf)))
+		errx(1, "EVP_EncryptUpdate");
+	assert(L == (int)sizeof(P->randombuf));
+	if (!EVP_EncryptFinal(ctx, NULL, &L))
+		errx(1, "EVP_EncryptFinal");
+	assert(L == 0);
+	EVP_CIPHER_CTX_free(ctx);
+
+	/* Success!  */
+	P->nrandom = sizeof(P->randombuf) - 32;
+	for (i = 0, c = 1; i < sizeof(P->randomnonce); i++) {
+		c += P->randomnonce[i];
+		P->randomnonce[i] = c & 0xff;
+	}
+}
+
+static void
+randombytes(struct prng *P, void *buf, size_t len)
+{
+	uint8_t *p = buf;
+	size_t k, n = len;
+
+	if (!S->deterministic) {
+		if (!RAND_bytes(buf, len))
+			errx(1, "RAND_bytes");
+		return;
+	}
+
+	assert(P->nrandom <= sizeof(P->randombuf) - 32);
+	for (;;) {
+		k = (n < P->nrandom ? n : P->nrandom);
+		memcpy(p, &P->randombuf[sizeof(P->randombuf) - P->nrandom], k);
+		memset(&P->randombuf[sizeof(P->randombuf) - P->nrandom], 0, k);
+		P->nrandom -= k;
+		n -= k;
+		if (n == 0)
+			break;
+		randomrefill(P);
+	}
+}
+
+static void
+randomsub(struct prng *P, struct prng *P0)
+{
+	uint8_t seed[32];
+
+	if (!S->deterministic)
+		return;
+
+	randombytes(P0, seed, sizeof(seed));
+	randomseed(P, seed);
+	OPENSSL_cleanse(seed, sizeof(seed));
+}
+
+static void
 signal_handler(int signo)
 {
 	int errno_saved = errno;
@@ -335,10 +433,7 @@ enroll_thread(void *cookie)
 	fido_init(0);
 
 	/* Generate a challenge.  */
-	if (!RAND_bytes(challenge, sizeof(challenge))) {
-		warnx("RAND_bytes");
-		goto out;
-	}
+	randombytes(&S->thread[i].prng, challenge, sizeof(challenge));
 
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	/* Set up signal masks: block SIGUSR1.  */
@@ -503,10 +598,7 @@ get_thread(void *cookie)
 	fido_init(0);
 
 	/* Generate a challenge.  */
-	if (!RAND_bytes(challenge, sizeof(challenge))) {
-		warnx("RAND_bytes");
-		goto out;
-	}
+	randombytes(&S->thread[i].prng, challenge, sizeof(challenge));
 
 #ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
 	/* Set up signal masks: block SIGUSR1.  */
@@ -725,6 +817,7 @@ run_thread_per_dev(void *(*start)(void *))
 
 	/* Create one thread for each device.  */
 	for (i = ndevs; i --> 0;) {
+		randomsub(&S->thread[i].prng, &S->prng);
 		S->thread[i].exited = false;
 		if ((error = pthread_create(&S->thread[i].pt, NULL, start,
 			    (void *)(uintptr_t)i)) != 0)
@@ -881,8 +974,7 @@ ensure_hmacsecret_salt(sqlite3 *db)
 	sqlite3_stmt *stmt;
 	int error;
 
-	if (!RAND_bytes(hmacsecret_salt, sizeof(hmacsecret_salt)))
-		errx(1, "RAND_bytes");
+	randombytes(&S->prng, hmacsecret_salt, sizeof(hmacsecret_salt));
 
 	if (sqlite3_prepare_v2(db,
 		"INSERT OR IGNORE INTO hmac_secret (id, salt) VALUES (0, ?)",
@@ -1618,8 +1710,7 @@ cmd_enroll(int argc, char **argv)
 		secret = do_get(&nsecret, db);
 	} else {
 		/* New file -- generate the secret.  */
-		if (!RAND_bytes(secretbuf, sizeof(secretbuf)))
-			errx(1, "RAND_bytes");
+		randombytes(&S->prng, secretbuf, sizeof(secretbuf));
 		secret = secretbuf;
 		nsecret = sizeof(secretbuf);
 	}
@@ -2161,11 +2252,44 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "dEHhqr:S:v")) != -1) {
+	while ((ch = getopt(argc, argv, "dD:EHhqr:S:v")) != -1) {
 		switch (ch) {
 		case 'd':
 			S->debug = S->verbose = true;
 			break;
+		case 'D': {
+			FILE *fp;
+			uint8_t seed[32];
+
+			if (S->deterministic) {
+				warnx("specify -D (deterministic) only once");
+				error = 1;
+				continue;
+			}
+
+			if (strcmp(optarg, "-") != 0) {
+				if ((fp = fopen(optarg, "r")) != 0)
+					err(1, "open seed");
+			} else {
+				fp = stdin;
+			}
+			if (fread(seed, 32, 1, fp) != 1) {
+				if (ferror(fp))
+					err(1, "failed to read seed");
+				else if (feof(fp))
+					errx(1, "truncated seed");
+				else
+					errx(1, "inexplicable seed");
+			}
+			if (strcmp(optarg, "-") != 0)
+				fclose(fp);
+
+			warnx("WARNING: deterministic for testing");
+			S->deterministic = true;
+			randomseed(&S->prng, seed);
+			OPENSSL_cleanse(seed, sizeof(seed));
+			break;
+		}
 		case 'E':
 			S->experimental = true;
 			break;
@@ -2242,6 +2366,14 @@ main(int argc, char **argv)
 	if (S->softfido) {
 		warnx("WARNING: softfido keyfiles are raw 32 bytes");
 		warnx("WARNING: softfido format subject to change");
+	}
+
+	/* Randomize softfido.  */
+	if (S->softfido) {
+		uint8_t seed[32];
+
+		randombytes(&S->prng, seed, sizeof(seed));
+		softfido_randomseed(seed);
 	}
 
 	/* Open the tty for messages if not quiet.  */
