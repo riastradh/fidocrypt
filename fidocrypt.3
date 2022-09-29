@@ -87,6 +87,12 @@ You will be returned a ciphertext, which includes enough information to
 verify an assertion of the credential and recover the plaintext later
 on.
 .It
+Optionally, verify the ciphertext wtih
+.Fn fido_assert_decrypt ,
+and start over if verification fails.
+This ensures that the ciphertext can be decrypted later with the same
+key.
+.It
 Store the ciphertext alongside the credential id so you can retireve it
 later during authentication.
 .Em \&Do not
