@@ -1651,6 +1651,10 @@ cmd_enroll(int argc, char **argv)
 	if ((error = fido_assert_decrypt(assert, 0, ciphertext, nciphertext,
 		    &payload, &npayload)) != FIDO_OK)
 		errx(1, "fido_assert_decrypt: %s", fido_strerr(error));
+	if (npayload != nsecret)
+		errx(1, "payload length mismatch %zu, %zu", npayload, nsecret);
+	if (memcmp(payload, secret, nsecret) != 0)
+		errx(1, "payload mismatch");
 	free(payload);
 	payload = NULL;
 	npayload = 0;
