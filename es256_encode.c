@@ -50,7 +50,6 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 	const EC_POINT *ec_point;
 	BN_CTX *ctx = NULL;
 	BIGNUM *x, *y;
-	int nbytes;
 	unsigned char xb[32], yb[32];
 	cbor_item_t *item = NULL;
 	struct cbor_pair ent[5];
@@ -90,11 +89,8 @@ es256_pk_encode(const es256_pk_t *pk, int ecdh)
 		goto out;
 
 	/* Convert the coordinates to big-endian 32-byte strings.  */
-	if ((nbytes = BN_num_bytes(x)) < 0 || (size_t)nbytes > sizeof(xb) ||
-	    (nbytes = BN_num_bytes(y)) < 0 || (size_t)nbytes > sizeof(yb))
-		goto out;
-	if ((nbytes = BN_bn2bin(x, xb)) < 0 || (size_t)nbytes > sizeof(xb) ||
-	    (nbytes = BN_bn2bin(y, yb)) < 0 || (size_t)nbytes > sizeof(yb))
+	if (BN_bn2binpad(x, xb, sizeof(xb)) == -1 ||
+	    BN_bn2binpad(y, yb, sizeof(yb)) == -1)
 		goto out;
 
 	/* kty(1) [key type] = EC2(2) (two-coordinate elliptic curve point) */

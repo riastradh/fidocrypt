@@ -167,6 +167,7 @@ SRCS_libfidocrypt = \
 	dae.c \
 	eddsa_decode.c \
 	es256_encode.c \
+	es256_from_eckey.c \
 	recover.c \
 	rs256_decode.c \
 	# end of SRCS_libfidocrypt
@@ -291,6 +292,7 @@ SRCS_fidokdf = \
 	crc.c \
 	cred_kdf.c \
 	es256_encode.c \
+	es256_from_eckey.c \
 	fidokdf.c \
 	recover.c \
 	# end of SRCS_fidokdf
@@ -327,6 +329,7 @@ SRCS_t_assert_decrypt = \
 	dae.c \
 	eddsa_decode.c \
 	es256_encode.c \
+	es256_from_eckey.c \
 	recover.c \
 	rs256_decode.c \
 	t_assert_decrypt.c \
@@ -364,6 +367,7 @@ t_assert_kdf.out: t_assert_kdf
 SRCS_t_assert_kdf = \
 	assert_kdf.c \
 	es256_encode.c \
+	es256_from_eckey.c \
 	recover.c \
 	t_assert_kdf.c \
 	# end of SRCS_t_assert_kdf

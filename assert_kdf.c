@@ -40,6 +40,7 @@
 #include <openssl/x509.h>
 
 #include "es256_encode.h"
+#include "es256_from_eckey.h"
 #include "recover.h"
 
 static int
@@ -93,7 +94,7 @@ es256_recover_kdf(const void *sig, size_t nsig, const void *hash, size_t nhash,
 	/* Hash the first one and see if it matches.  */
 	if ((es256_pk = es256_pk_new()) == NULL)
 		goto out;
-	if (es256_pk_from_EC_KEY(es256_pk, ec_pk[0]))
+	if (fidocrypt_es256_pk_from_EC_KEY(es256_pk, ec_pk[0]))
 		goto out;
 	if ((pkcbor = es256_pk_encode(es256_pk, /*ecdh*/0)) == NULL)
 		goto out;
@@ -115,7 +116,7 @@ es256_recover_kdf(const void *sig, size_t nsig, const void *hash, size_t nhash,
 
 		if ((es256_pk = es256_pk_new()) == NULL)
 			goto out;
-		if (es256_pk_from_EC_KEY(es256_pk, ec_pk[1]))
+		if (fidocrypt_es256_pk_from_EC_KEY(es256_pk, ec_pk[1]))
 			goto out;
 		if ((pkcbor = es256_pk_encode(es256_pk, /*ecdh*/0)) == NULL)
 			goto out;

@@ -48,6 +48,7 @@
 #include "dae.h"
 #include "eddsa_decode.h"
 #include "es256_encode.h"
+#include "es256_from_eckey.h"
 #include "export.h"
 #include "recover.h"
 #include "rs256_decode.h"
@@ -126,7 +127,7 @@ es256_recover_decrypt(const void *sig, size_t nsig,
 	/* Hash the first one and see if it matches.  */
 	if ((es256_pk = es256_pk_new()) == NULL)
 		goto out;
-	if (es256_pk_from_EC_KEY(es256_pk, ec_pk[0]))
+	if (fidocrypt_es256_pk_from_EC_KEY(es256_pk, ec_pk[0]))
 		goto out;
 	if ((pkcbor = es256_pk_encode(es256_pk, /*ecdh*/0)) == NULL)
 		goto out;
@@ -153,7 +154,7 @@ es256_recover_decrypt(const void *sig, size_t nsig,
 
 		if ((es256_pk = es256_pk_new()) == NULL)
 			goto out;
-		if (es256_pk_from_EC_KEY(es256_pk, ec_pk[1]))
+		if (fidocrypt_es256_pk_from_EC_KEY(es256_pk, ec_pk[1]))
 			goto out;
 		if ((pkcbor = es256_pk_encode(es256_pk, /*ecdh*/0)) == NULL)
 			goto out;
