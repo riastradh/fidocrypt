@@ -33,6 +33,10 @@
 
 #include <fido.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int fido_cred_encrypt(const fido_cred_t *, const fido_assert_t *, size_t,
     const unsigned char *, size_t,
     unsigned char **, size_t *);
@@ -40,5 +44,9 @@ int fido_cred_encrypt(const fido_cred_t *, const fido_assert_t *, size_t,
 int fido_assert_decrypt(const fido_assert_t *, size_t,
     const unsigned char *, size_t,
     unsigned char **, size_t *);
+
+#ifdef __cplusplus
+}	/* extern "C" */
+#endif
 
 #endif	/* FIDOCRYPT_FIDOCRYPT_H */
