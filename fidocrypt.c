@@ -782,7 +782,7 @@ run_thread_per_dev(void *(*start)(void *))
 	else
 		error = fido_dev_info_manifest(devlist, maxndevs, &ndevs);
 	if (error != FIDO_OK)
-		errx(1, "softfido_dev_info_manifest: %s", fido_strerr(error));
+		errx(1, "fido_dev_info_manifest: %s", fido_strerr(error));
 	assert(ndevs <= maxndevs);
 
 	if (S->verbose) {
