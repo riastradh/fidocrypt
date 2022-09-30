@@ -28,6 +28,8 @@
 
 #include "rs256_decode.h"
 
+#ifdef HAVE_FIDO_RSA		/* XXX libfido2 >=1.4.0 */
+
 #include <cbor.h>
 #include <fido/rs256.h>
 
@@ -39,3 +41,5 @@ rs256_pk_decode(const cbor_item_t *item, rs256_pk_t *pk)
 	(void)pk;
 	return -1;		/* XXX not yet implemented */
 }
+
+#endif	/* HAVE_FIDO_RSA */

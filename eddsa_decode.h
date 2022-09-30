@@ -29,11 +29,15 @@
 #ifndef	FIDOCRYPT_EDDSA_DECODE_H
 #define	FIDOCRYPT_EDDSA_DECODE_H
 
+#ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */
+
 #include <cbor.h>
 #include <fido/eddsa.h>
 
 #define	eddsa_pk_decode	fidocrypt_eddsa_pk_decode	/* private */
 
 int eddsa_pk_decode(const cbor_item_t *, eddsa_pk_t *);
+
+#endif	/* HAVE_FIDO_ED25519 */
 
 #endif	/* FIDOCRYPT_EDDSA_DECODE_H */

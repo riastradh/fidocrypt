@@ -208,6 +208,8 @@ out:	if (pkcborbuf) {
 	return error;
 }
 
+#if defined HAVE_FIDO_ED25519 || defined HAVE_FIDO_RSA
+
 static int
 decrypt(const void *pkenc, size_t npkenc,
     const void *hmac_secret, size_t nhmac_secret,
@@ -252,6 +254,8 @@ out:	OPENSSL_cleanse(key, sizeof(key));
 	return error;
 }
 
+#endif	/* defined HAVE_FIDO_ED25519 || defined HAVE_FIDO_RSA */
+
 EXPORT
 int
 fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
@@ -262,8 +266,10 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 	const void *cdh, *authdata_enc, *authdata, *sig, *hmac_secret = NULL;
 	size_t ncdh, nauthdata_enc, nauthdata, nsig, nhmac_secret = 0;
 	cbor_item_t *authdata_cbor = NULL;
+#if defined HAVE_FIDO_ED25519 || defined HAVE_FIDO_RSA
 	const unsigned char *pkenc;
 	size_t npkenc;
+#endif
 	cbor_item_t *pkcbor = NULL;
 	const struct cbor_pair *entry;
 	size_t i, n;
@@ -273,8 +279,12 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 	SHA256_CTX ctx;
 	unsigned char hash[32];
 	es256_pk_t *es256_pk = NULL;
+#ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */
 	eddsa_pk_t *eddsa_pk = NULL;
+#endif
+#ifdef HAVE_FIDO_RSA		/* XXX libfido2 >=1.4.0 */
 	rs256_pk_t *rs256_pk = NULL;
+#endif
 	int error;
 
 	/* Paranoia: Verify that necessary inputs are nonnull.  */
@@ -334,8 +344,10 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 	 * ciphertext.  We will use this encoded public key if we
 	 * aren't doing public key recovery.
 	 */
+#if defined HAVE_FIDO_ED25519 || defined HAVE_FIDO_RSA
 	pkenc = ciphertext;
 	npkenc = load.read;
+#endif
 	ciphertext += load.read;
 	nciphertext -= load.read;
 
@@ -463,6 +475,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 		error = fido_assert_verify(assert, idx, alg, es256_pk);
 		break;
 	}
+#ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */
 	case COSE_EDDSA:	/* Ed25519 */
 		/* Create and decode our Ed25519 public key.  */
 		if ((eddsa_pk = eddsa_pk_new()) == NULL) {
@@ -483,6 +496,8 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 		error = decrypt(pkenc, npkenc, hmac_secret, nhmac_secret,
 		    ciphertext, nciphertext, payload);
 		break;
+#endif	/* HAVE_FIDO_ED25519 */
+#ifdef HAVE_FIDO_RSA		/* XXX libfido2 >=1.4.0 */
 	case COSE_RS256:	/* RSASSA-PKCS1-v1_5 w/ SHA-256 */
 		/* Create and decode our RSA public key.  */
 		if ((rs256_pk = rs256_pk_new()) == NULL) {
@@ -503,6 +518,7 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 		error = decrypt(pkenc, npkenc, hmac_secret, nhmac_secret,
 		    ciphertext, nciphertext, payload);
 		break;
+#endif	/* HAVE_FIDO_RSA */
 	default:
 		/* Unknown algorithm.  */
 		error = FIDO_ERR_INVALID_ARGUMENT;
@@ -517,8 +533,13 @@ fido_assert_decrypt(const fido_assert_t *assert, size_t idx,
 	*npayloadp = npayload;
 	error = FIDO_OK;
 
-out:	rs256_pk_free(&rs256_pk);
+out:
+#ifdef HAVE_FIDO_RSA		/* XXX libfido2 >=1.4.0 */
+	rs256_pk_free(&rs256_pk);
+#endif
+#ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */
 	eddsa_pk_free(&eddsa_pk);
+#endif
 	es256_pk_free(&es256_pk);
 	OPENSSL_cleanse(hash, sizeof(hash));
 	OPENSSL_cleanse(&ctx, sizeof(ctx));

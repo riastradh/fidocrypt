@@ -28,6 +28,8 @@
 
 #include "eddsa_decode.h"
 
+#ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */
+
 #include <stddef.h>
 #include <string.h>
 
@@ -119,3 +121,5 @@ eddsa_pk_decode(const cbor_item_t *item, eddsa_pk_t *pk)
 	EVP_PKEY_free(pkey);
 	return error ? -1 : 0;
 }
+
+#endif	/* HAVE_FIDO_ED25519 */

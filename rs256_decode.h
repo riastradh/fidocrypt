@@ -29,11 +29,15 @@
 #ifndef	FIDOCRYPT_RS256_DECODE_H
 #define	FIDOCRYPT_RS256_DECODE_H
 
+#ifdef HAVE_FIDO_RSA		/* XXX libfido2 >=1.4.0 */
+
 #include <cbor.h>
 #include <fido/rs256.h>
 
 #define	rs256_pk_decode	fidocrypt_rs256_pk_decode	/* private */
 
 int rs256_pk_decode(const cbor_item_t *, rs256_pk_t *);
+
+#endif	/* HAVE_FIDO_RSA */
 
 #endif	/* FIDOCRYPT_RS256_DECODE_H */
