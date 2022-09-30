@@ -770,6 +770,7 @@ run_thread_per_dev(void *(*start)(void *))
 {
 	fido_dev_info_t *devlist = NULL;
 	size_t ndevs = 0, maxndevs = arraycount(S->thread);
+	pthread_attr_t attr;
 	struct timespec deadline;
 	unsigned i;
 	int error;
@@ -814,14 +815,28 @@ run_thread_per_dev(void *(*start)(void *))
 	S->result = NULL;
 	S->done = false;
 
+	/*
+	 * Arrange to use a 64 KB stack per thread -- otherwise we may
+	 * end up allocating a large amount of locked memory.  In
+	 * experiments, the actual stack usage is closer to 8 KB.
+	 */
+	if ((error = pthread_attr_init(&attr)) != 0)
+		errc(1, error, "pthread_attr_init");
+	if ((error = pthread_attr_setstacksize(&attr, 64*1024)) != 0)
+		errc(1, error, "pthread_attr_setstacksize");
+
 	/* Create one thread for each device.  */
 	for (i = ndevs; i --> 0;) {
 		randomsub(&S->thread[i].prng, &S->prng);
 		S->thread[i].exited = false;
-		if ((error = pthread_create(&S->thread[i].pt, NULL, start,
+		if ((error = pthread_create(&S->thread[i].pt, &attr, start,
 			    (void *)(uintptr_t)i)) != 0)
 			errc(1, error, "pthread_create");
 	}
+
+	/* Finished with the pthread attributes.  */
+	if ((error = pthread_attr_destroy(&attr)) != 0)
+		errc(1, error, "pthread_attr_destroy");
 
 	/* Determine the deadline -- 15sec from now.  */
 	if (clock_gettime(CLOCK_REALTIME, &deadline) == -1)
