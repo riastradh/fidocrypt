@@ -23,6 +23,7 @@ INSTALL_LIB = $(INSTALL)
 INSTALL_MAN = $(INSTALL)
 INSTALL_PROGRAM = $(INSTALL)
 
+CPP = cpp
 TRADCPP = $(CPP) -traditional-cpp
 MANDOC = mandoc
 PS2PDF = ps2pdf
