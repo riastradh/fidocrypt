@@ -26,8 +26,6 @@
  * SUCH DAMAGE.
  */
 
-#define	_NETBSD_SOURCE
-
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -51,6 +49,13 @@
 #include <openssl/rand.h>
 #include <softfido.h>
 #include <sqlite3.h>
+
+#include "attribute.h"
+#include "getoptreset.h"
+#include "progname.h"
+
+#define	arraycount(A)	(sizeof(A)/sizeof((A)[0]))
+#define	errc(S,E,M...)	(errno = (E), err(S, ##M))
 
 static const char *schema[] = {
 #include "fidocrypt1.i"
@@ -764,7 +769,7 @@ static void *
 run_thread_per_dev(void *(*start)(void *))
 {
 	fido_dev_info_t *devlist = NULL;
-	size_t ndevs = 0, maxndevs = __arraycount(S->thread);
+	size_t ndevs = 0, maxndevs = arraycount(S->thread);
 	struct timespec deadline;
 	unsigned i;
 	int error;
@@ -1045,7 +1050,7 @@ opencrypt(const char *path, int flags)
 	 * exclude other writers but not other readers.
 	 */
 	if (ver == 0) {
-		for (i = 0; i < __arraycount(schema); i++) {
+		for (i = 0; i < arraycount(schema); i++) {
 			if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL,
 				NULL) != SQLITE_OK)
 				errx(1, "sqlite3 BEGIN IMMEDIATE: %s",
@@ -1066,7 +1071,7 @@ opencrypt(const char *path, int flags)
 		/* Ensure there is an hmac-secret salt.  */
 		ensure_hmacsecret_salt(db);
 	} else {
-		if ((uint64_t)llabs(ver) > __arraycount(schema))
+		if ((uint64_t)llabs(ver) > arraycount(schema))
 			errx(1, "unknown cryptfile format (version=%"PRId64")",
 			    ver);
 		if ((uint64_t)llabs(ver) < oldest_compatible_version)
@@ -1428,7 +1433,7 @@ delete_id(sqlite3 *db, int64_t id)
 		    sqlite3_errmsg(db));
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_backup(void)
 {
 
@@ -1510,7 +1515,7 @@ cmd_backup(int argc, char **argv)
 	closecrypt(odb);
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_enroll(void)
 {
 
@@ -1806,7 +1811,7 @@ cmd_enroll(int argc, char **argv)
 	closecrypt(db);
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_get(void)
 {
 
@@ -1902,7 +1907,7 @@ cmd_get(int argc, char **argv)
 	free(secret);
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_list(void)
 {
 
@@ -1972,7 +1977,7 @@ cmd_list(int argc, char **argv)
 	closecrypt(db);
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_rename(void)
 {
 
@@ -2077,7 +2082,7 @@ cmd_rename(int argc, char **argv)
 	closecrypt(db);
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_unenroll(void)
 {
 
@@ -2200,7 +2205,7 @@ readsoftfidokey(const char *path)
 	OPENSSL_cleanse(key, sizeof(key));
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage(void)
 {
 
@@ -2390,7 +2395,7 @@ main(int argc, char **argv)
 	 * Verify we have a command and dispatch on it.  Make sure to
 	 * reset getopt(3) before parsing the subcommand arguments.
 	 */
-	optreset = optind = 1;
+	getoptreset();
 	if (strcmp(argv[0], "backup") == 0)
 		cmd_backup(argc, argv);
 	else if (strcmp(argv[0], "enroll") == 0)

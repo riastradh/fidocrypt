@@ -78,8 +78,7 @@ run-time.
 
 [fidocrypt.c](fidocrypt.c) implements a command that stores a short
 secret in a file encrypted with any one of a set of enrolled security
-keys in a file.  (Tested on NetBSD 9.1; fidocrypt.c itself may require
-tweaks for other systems, but the rest should not.)
+keys in a file.
 
 Example:
 

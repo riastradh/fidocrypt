@@ -26,8 +26,6 @@
  * SUCH DAMAGE.
  */
 
-#define	_NETBSD_SOURCE
-
 #include <err.h>
 #include <getopt.h>
 #include <stddef.h>
@@ -40,8 +38,39 @@
 #include <openssl/rand.h>
 
 #include "assert_kdf.h"
+#include "attribute.h"
 #include "crc.h"
 #include "cred_kdf.h"
+#include "fsyncflush.h"
+#include "progname.h"
+
+static uint16_t
+be16dec(const void *buf)
+{
+	const uint8_t *p = buf;
+
+	return ((uint16_t)p[0] << 8) | p[1];
+}
+
+static void
+be16enc(void *buf, uint16_t x)
+{
+	uint8_t *p = buf;
+
+	p[0] = x >> 8;
+	p[1] = x;
+}
+
+static void
+le32enc(void *buf, uint32_t x)
+{
+	uint8_t *p = buf;
+
+	p[0] = x;
+	p[1] = x >> 8;
+	p[2] = x >> 16;
+	p[3] = x >> 24;
+}
 
 static void
 writecred(const char *path, const uint8_t pkconf[static 32],
@@ -97,8 +126,8 @@ writecred(const char *path, const uint8_t pkconf[static 32],
 	 * key that has been lost if the credential file is eaten by a
 	 * power failure.
 	 */
-	if (fsync_range(fileno(file), FFILESYNC|FDISKSYNC, 0, 0) == -1)
-		err(1, "fsync_range");
+	if (fsyncflush(fileno(file)) == -1)
+		err(1, "fsync");
 
 	/* All set -- close the file.  */
 	if (strcmp(path, "-") != 0)
@@ -205,7 +234,7 @@ opendev(const char *devpath)
 	return dev;
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_make(void)
 {
 
@@ -373,7 +402,7 @@ make(int argc, char **argv)
 	OPENSSL_cleanse(challenge, sizeof(challenge));
 }
 
-static void __dead
+static void ATTR_NORETURN
 usage_get(void)
 {
 

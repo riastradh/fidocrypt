@@ -216,6 +216,8 @@ clean-libfidocrypt: .PHONY
 #
 SRCS_fidocrypt = \
 	fidocrypt.c \
+	getoptreset.c \
+	progname.c \
 	softfido.c \
 	# end of SRCS_fidocrypt
 DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.o.d)
@@ -299,6 +301,8 @@ SRCS_fidokdf = \
 	es256_encode.c \
 	es256_from_eckey.c \
 	fidokdf.c \
+	fsyncflush.c \
+	progname.c \
 	recover.c \
 	# end of SRCS_fidokdf
 DEPS_fidokdf = $(SRCS_fidokdf:.c=.o.d)
