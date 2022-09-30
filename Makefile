@@ -108,7 +108,8 @@ install-man: .PHONY
 .c.covo:
 	$(CC) -o $@ $(COV_CFLAGS) $(_CFLAGS) $(_CPPFLAGS) -c $<
 
-_CFLAGS = -g -Og -Wall -Wextra -Werror -std=c99 -fvisibility=hidden $(CFLAGS)
+CWARNFLAGS = -Wall -Wextra -Werror -Wno-unused-result
+_CFLAGS = -g -Og $(CWARNFLAGS) -std=c99 -fvisibility=hidden $(CFLAGS)
 _CPPFLAGS = -MD -MF $@.d -D_POSIX_C_SOURCE=200809L -I. $(CPPFLAGS)
 
 # SQL -> C include file, for schema definitions
