@@ -418,7 +418,7 @@ enroll_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
 	uint8_t challenge[32];
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	sigset_t mask, omask;
 #endif
 	const fido_dev_info_t *devinfo = NULL;
@@ -434,7 +434,7 @@ enroll_thread(void *cookie)
 	/* Generate a challenge.  */
 	randombytes(&S->thread[i].prng, challenge, sizeof(challenge));
 
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	/* Set up signal masks: block SIGUSR1.  */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
@@ -462,7 +462,7 @@ enroll_thread(void *cookie)
 	}
 
 	/* Open the device, and arrange to unblock SIGUSR1 while we wait.  */
-#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX not until libfido >1.9.0 */
+#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX libfido >=1.10.0 */
 	if ((dev = fido_dev_new_with_info(devinfo)) == NULL) {
 		warnx("fido_dev_new_with_info");
 		goto out;
@@ -481,7 +481,7 @@ enroll_thread(void *cookie)
 		goto out;
 	}
 #endif
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	if (!S->softfido &&		/* XXX */
 	    (error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));
@@ -581,7 +581,7 @@ get_thread(void *cookie)
 {
 	unsigned i = (unsigned)(uintptr_t)cookie;
 	uint8_t challenge[32];
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	sigset_t mask, omask;
 #endif
 	const fido_dev_info_t *devinfo = NULL;
@@ -599,7 +599,7 @@ get_thread(void *cookie)
 	/* Generate a challenge.  */
 	randombytes(&S->thread[i].prng, challenge, sizeof(challenge));
 
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	/* Set up signal masks: block SIGUSR1.  */
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
@@ -627,7 +627,7 @@ get_thread(void *cookie)
 	}
 
 	/* Open the device, and arrange to unblock SIGUSR1 while we wait.  */
-#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX not until libfido >1.9.0 */
+#ifdef HAVE_FIDO_DEV_WITH_INFO		/* XXX libfido >=1.10.0 */
 	if ((dev = fido_dev_new_with_info(devinfo)) == NULL) {
 		warnx("fido_dev_new_with_info");
 		goto out;
@@ -646,7 +646,7 @@ get_thread(void *cookie)
 		goto out;
 	}
 #endif
-#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX not until libfido2 >1.6.0 */
+#ifdef HAVE_FIDO_DEV_SET_SIGMASK	/* XXX libfido2 >=1.7.0 */
 	if (!S->softfido &&		/* XXX */
 	    (error = fido_dev_set_sigmask(dev, &omask)) != FIDO_OK) {
 		warnx("fido_dev_set_sigmask: %s", fido_strerr(error));

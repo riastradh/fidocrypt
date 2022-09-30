@@ -175,7 +175,7 @@ strip_pk(const fido_cred_t *cred, unsigned char **pkcanonp, size_t *npkcanonp,
 	int error;
 
 	/* Get the authdata.  */
-#ifdef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX not until libfido2 1.6.0 */
+#ifdef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX libfido2 >=1.6.0 */
 	if ((authdata = (const void *)fido_cred_authdata_raw_ptr(cred))
 	    == NULL) {
 		error = FIDO_ERR_INVALID_ARGUMENT;
@@ -375,7 +375,7 @@ out:	if (pkstrip)
 		cbor_decref(&pkcanoncbor);
 	if (pkcbor)
 		cbor_decref(&pkcbor);
-#ifndef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX not until libfido2 1.6.0 */
+#ifndef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX libfido2 >=1.6.0 */
 	if (authdatacbor)
 		cbor_decref(&authdatacbor);
 #endif
