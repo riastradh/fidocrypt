@@ -224,22 +224,26 @@ DEPS_fidocrypt = $(SRCS_fidocrypt:.c=.o.d)
 # Can be run out of build tree.
 fidocrypt: $(SRCS_fidocrypt:.c=.o) libfidocrypt.$(SHLIB_EXT)
 	$(CC) -o $@ $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
-		-L. $(SHLIB_RPATHFLAG)"$$(pwd)" -lfidocrypt -pthread -lsqlite3
+		-L. $(SHLIB_RPATHFLAG)"$$(pwd)" \
+		-lcrypto -lfido2 -lfidocrypt -pthread -lsqlite3
 
 # Requires libfidocrypt to be installed in order to run.
 fidocrypt.install: $(SRCS_fidocrypt:.c=.o) libfidocrypt.$(SHLIB_EXT)
 	$(CC) -o $@ $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
-		-L. $(SHLIB_RPATHFLAG)$(libdir) -lfidocrypt -pthread -lsqlite3
+		-L. $(SHLIB_RPATHFLAG)$(libdir) \
+		-lcrypto -lfido2 -lfidocrypt -pthread -lsqlite3
 
 # May be useful for self-contained boot images.
 fidocrypt.static: $(SRCS_fidocrypt:.c=.o) libfidocrypt.a
 	$(CC) -o $@ -static $(_CFLAGS) $(LDFLAGS) $(SRCS_fidocrypt:.c=.o) \
+		-lcrypto -lfido2 \
 		-L. -lfidocrypt $(LDLIBS_libfidocrypt) -pthread -lsqlite3 -lm
 
 # Code coverage
 fidocrypt.cov: $(SRCS_fidocrypt:.c=.covo) libfidocrypt_cov.a
 	$(CC) -o $@ $(COV_CFLAGS) $(_CFLAGS) $(LDFLAGS) \
 		$(SRCS_fidocrypt:.c=.covo) \
+		-lcrypto -lfido2 \
 		-L. -lfidocrypt_cov $(LDLIBS_libfidocrypt) \
 		-pthread -lsqlite3 -lm
 
