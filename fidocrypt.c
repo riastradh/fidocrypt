@@ -114,7 +114,7 @@ MSG(const char *fmt, ...)
 		return;
 
 	va_start(va, fmt);
-	(void)vsnprintf_ss(buf, sizeof(buf), fmt, va);
+	(void)vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
 
 	(void)write(S->ttyfd, buf, strlen(buf));
@@ -132,12 +132,8 @@ DBG(const char *fmt, ...)
 
 	errno_saved = errno;	/* save errno */
 
-	/*
-	 * This is used in a signal handler, so we must use the
-	 * signal-safe variant of vsnprintf.
-	 */
 	va_start(va, fmt);
-	(void)vsnprintf_ss(buf, sizeof(buf), fmt, va);
+	(void)vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
 
 	(void)write(STDERR_FILENO, buf, strlen(buf));
@@ -333,8 +329,6 @@ static void
 signal_handler(int signo)
 {
 	int errno_saved = errno;
-
-	DBG("signal %d thread=%p\n", signo, (const void *)pthread_self());
 
 	/* Nothing to do -- just need syscalls to wake with EINTR.  */
 	(void)signo;
