@@ -109,7 +109,11 @@ install-man: .PHONY
 .c.covo:
 	$(CC) -o $@ $(COV_CFLAGS) $(_CFLAGS) $(_CPPFLAGS) -c $<
 
-CWARNFLAGS = -Wall -Wextra -Werror -Wno-unused-result
+CNOWARNFLAGS = \
+	-Wno-deprecated-declarations \
+	-Wno-unused-result \
+	# end of CNOWARNFLAGS
+CWARNFLAGS = -Wall -Werror $(CNOWARNFLAGS)
 _CFLAGS = -g -Og $(CWARNFLAGS) -std=c99 -fvisibility=hidden $(CFLAGS)
 _CPPFLAGS = -MD -MF $@.d -D_POSIX_C_SOURCE=200809L -I. $(CPPFLAGS)
 
