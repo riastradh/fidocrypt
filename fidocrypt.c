@@ -2402,6 +2402,17 @@ main(int argc, char **argv)
 			err(1, "open tty");
 	}
 
+	/*
+	 * Ensure OpenSSL RAND_* has allocated anything it needs before
+	 * we lock allocated memory into RAM.
+	 */
+	if (!S->deterministic) {
+		unsigned char b;
+
+		if (RAND_bytes(&b, sizeof(b)) != 1)
+			errx(1, "RAND_bytes");
+	}
+
 	/* Lock all future pages and disable core dumps.  */
 	if (mlockall(MCL_FUTURE) == -1)
 		err(1, "mlockall");
