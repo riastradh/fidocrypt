@@ -232,7 +232,7 @@ make(int argc, char **argv)
 	uint8_t key[FIDOCRYPT_KDF_KEYBYTES];
 	const void *credential_id;
 	size_t ncredential_id;
-	int ch, error;
+	int ch, error = 0;
 
 	/* Parse arguments.  */
 	while ((ch = getopt(argc, argv, "d:f:N:r:u:")) != -1) {
