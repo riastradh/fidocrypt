@@ -827,7 +827,7 @@ run_thread_per_dev(void *(*start)(void *))
 	/* Determine the deadline -- 15sec from now.  */
 	if (clock_gettime(CLOCK_REALTIME, &deadline) == -1)
 		err(1, "clock_gettime");
-	timespecadd(&deadline, (&(const struct timespec){15, 0}), &deadline);
+	deadline.tv_sec += 15;
 
 	/*
 	 * Wait for one of the threads to complete.  Then send a signal
