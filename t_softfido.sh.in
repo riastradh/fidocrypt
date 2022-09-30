@@ -13,7 +13,7 @@ exec 2>&1       # test warning and error messages too
 
 tmp=
 trap 'cd /; test -n "$tmp" && rm -rf -- "$tmp"' EXIT INT HUP TERM
-tmp=$(mktemp -d -t "${0##*/}")
+tmp=$(mktemp -d -t "${0##*/}.XXXXXXXX")
 
 fidocrypt ()
 {
