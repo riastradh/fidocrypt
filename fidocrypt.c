@@ -299,7 +299,11 @@ randombytes(struct prng *P, void *buf, size_t len)
 	size_t k, n = len;
 
 	if (!S->deterministic) {
-		if (!RAND_bytes(buf, len))
+		/*
+		 * RAND_bytes returns 1 on success, 0 on some failures,
+		 * and -1 on other failures, so check explicitly for 1.
+		 */
+		if (RAND_bytes(buf, len) != 1)
 			errx(1, "RAND_bytes");
 		return;
 	}
