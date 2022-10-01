@@ -2424,6 +2424,13 @@ main(int argc, char **argv)
 		err(1, "setrlimit(RLIMIT_CORE)");
 
 	/*
+	 * Reseed in case any secrets had been swapped before we locked
+	 * pages into RAM.
+	 */
+	if (!RAND_poll())
+		errx(1, "RAND_poll");
+
+	/*
 	 * Verify we have a command and dispatch on it.  Make sure to
 	 * reset getopt(3) before parsing the subcommand arguments.
 	 */
