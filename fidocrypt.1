@@ -496,3 +496,21 @@ limits because of this; see
 .Xr setrlimit 2 .
 .Sh BUGS
 User ids can't have NUL bytes.
+.Pp
+.Nm
+has no way to wait for the user to insert a U2F/FIDO security key.
+On a machine with only one USB port, enrolling a new security key in a
+fidocrypt that already has another one enrolled can be frustrating.
+Workaround:
+.Bl -enum
+.It
+First save the secret to a temporary file (ideally in tmpfs) with one
+security key plugged in.
+.It
+Then unplug it and plug in the other security key.
+.It
+Finally enroll the other security key using the same secret with the
+.Fl s
+option to
+.Nm Cm enroll .
+.El
