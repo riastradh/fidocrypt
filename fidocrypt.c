@@ -2415,8 +2415,15 @@ main(int argc, char **argv)
 			errx(1, "RAND_bytes");
 	}
 
-	/* Lock all future pages and disable core dumps.  */
-	if (mlockall(MCL_FUTURE) == -1)
+	/*
+	 * Lock all future pages and disable core dumps.
+	 *
+	 * Some systems -- namely macOS -- have the mlockall(2) system
+	 * call but it always returns ENOSYS.  In this case, there's no
+	 * sense in refusing to continue without it -- maybe swap is
+	 * encrypted anyway on such systems so it's a moot point.
+	 */
+	if (mlockall(MCL_FUTURE) == -1 && errno != ENOSYS)
 		err(1, "mlockall");
 	rlim.rlim_cur = 0;
 	rlim.rlim_max = 0;
@@ -2427,8 +2434,10 @@ main(int argc, char **argv)
 	 * Reseed in case any secrets had been swapped before we locked
 	 * pages into RAM.
 	 */
-	if (!RAND_poll())
-		errx(1, "RAND_poll");
+	if (!S->deterministic) {
+		if (!RAND_poll())
+			errx(1, "RAND_poll");
+	}
 
 	/*
 	 * Verify we have a command and dispatch on it.  Make sure to
