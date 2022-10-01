@@ -26,6 +26,8 @@
  * SUCH DAMAGE.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "eddsa_decode.h"
 
 #ifdef HAVE_FIDO_ED25519	/* XXX libfido2 >=1.4.0 */

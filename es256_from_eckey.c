@@ -26,6 +26,8 @@
  * SUCH DAMAGE.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "es256_from_eckey.h"
 
 #include <string.h>

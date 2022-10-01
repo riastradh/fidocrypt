@@ -31,6 +31,8 @@
  * here -- at least, the parts for ECDSA; don't care about ECDH.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "es256_encode.h"
 
 #include <string.h>

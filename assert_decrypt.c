@@ -26,6 +26,8 @@
  * SUCH DAMAGE.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "assert_decrypt.h"
 #include "fidocrypt.h"
 

@@ -26,6 +26,8 @@
  * SUCH DAMAGE.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>

@@ -54,6 +54,8 @@
  *       HMAC-SHA256 is collision-resistant.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "dae.h"
 
 #include <string.h>

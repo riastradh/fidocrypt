@@ -50,6 +50,8 @@
  * way to discriminate valid public keys.
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "recover.h"
 
 #include <assert.h>

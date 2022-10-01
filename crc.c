@@ -39,6 +39,8 @@
  *	https://tools.ietf.org/html/rfc1952.html
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "crc.h"
 
 #include <stdbool.h>

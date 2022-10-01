@@ -41,6 +41,8 @@
  *   => cookie(32) || masked-metadata(16) || tag(16)
  */
 
+#define	_POSIX_C_SOURCE	200809L
+
 #include "softfido.h"
 
 #ifdef HAVE_FIDO_CUSTOM_TRANSPORT
