@@ -58,55 +58,6 @@ is a work in progress.
 The file format is not yet stable.
 .Ss Common options
 .Bl -tag -width Fl
-.It Fl d
-Debug output: print various internal diagnostics to stderr.
-.Pp
-For additional (and very verbose) debug output including the raw
-U2F/CTAP transactions, which might include secrets, you may also set
-the
-.Ev FIDO_DEBUG
-environment variable.
-.It Fl D Ar seed
-Deterministic mode, pseudorandomized by
-.Ar seed .
-Challenges and, with the
-.Fl S
-option, enrolled keys, are deterministically generated from
-.Ar seed .
-.Pp
-Not everything is deterministic: signatures generated with the
-.Fl S
-option are still randomized (bug), and parts of sqlite3 may still be
-randomized too.
-.It Fl E
-Allow experimental cryptfile formats.
-Use with care only during development and testing.
-.It Fl H
-Disable the
-.Li hmac-secret
-extension.
-By default,
-.Nm
-will automatically take advantage of
-.Li hmac-secret
-on any device that supports it.
-This option is useful mainly for testing.
-.Pp
-.Li hmac-secret
-must be enabled or disabled for both
-.Nm Cm enroll
-and
-.Nm Cm get ;
-disabling it for one and enabling it for the other will not work.
-When
-.Li hmac-secret
-is disabled, or with devices that don't support it, only
-.Li ES256
-keys over
-.Li P256
-(that is, ECDSA with SHA-256 over the curve NIST P-256, also known as
-secp256r1)
-are supported.
 .It Fl v
 Verbose output: print the vendor and product ids of the devices being
 queried to stderr.
@@ -130,6 +81,58 @@ option, you can set the
 environment variable; when both are specified, the
 .Fl r
 option takes precedence.
+.El
+.Ss Debug options
+The following options are meant for use during development, debugging,
+and/or testing only, not for normal use.
+.Bl -tag -width Fl
+.It Fl d
+Debug output: print various internal diagnostics to stderr.
+.Pp
+For additional (and very verbose) debug output including the raw
+U2F/CTAP transactions, which might include secrets, you may also set
+the
+.Ev FIDO_DEBUG
+environment variable.
+.It Fl D Ar seed
+Deterministic mode, pseudorandomized by
+.Ar seed .
+Challenges and, with the
+.Fl S
+option, enrolled keys, are deterministically generated from
+.Ar seed .
+.Pp
+Not everything is deterministic: signatures generated with the
+.Fl S
+option are still randomized (bug), and parts of sqlite3 may still be
+randomized too.
+.It Fl E
+Allow experimental cryptfile formats.
+.It Fl H
+Disable the
+.Li hmac-secret
+extension.
+By default,
+.Nm
+will automatically take advantage of
+.Li hmac-secret
+on any device that supports it.
+.Pp
+.Li hmac-secret
+must be enabled or disabled for both
+.Nm Cm enroll
+and
+.Nm Cm get ;
+disabling it for one and enabling it for the other will not work.
+When
+.Li hmac-secret
+is disabled, or with devices that don't support it, only
+.Li ES256
+keys over
+.Li P256
+(that is, ECDSA with SHA-256 over the curve NIST P-256, also known as
+secp256r1)
+are supported.
 .It Fl S Ar softfidokey
 Instead of whatever U2F/FIDO devices are available in the system, use a
 software U2F/FIDO key stored at
