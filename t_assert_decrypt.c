@@ -84,7 +84,7 @@ typedef struct _fido_assert_stmt {
 	fido_blob_t     sig;             /* signature of cdh + authdata */
 } fido_assert_stmt;
 
-typedef struct fido_assert {
+struct fido_assert {
 	char              *rp_id;        /* relying party id */
 	fido_blob_t        cdh;          /* client data hash */
 	fido_blob_t        hmac_salt;    /* optional hmac-secret salt */
@@ -95,7 +95,7 @@ typedef struct fido_assert {
 	fido_assert_stmt  *stmt;         /* array of expected assertions */
 	size_t             stmt_cnt;     /* number of allocated assertions */
 	size_t             stmt_len;     /* number of received assertions */
-} fido_assert_t;
+};
 
 static int
 fido_assert_set_hmac_secret(fido_assert_t *assert, size_t idx,
