@@ -259,30 +259,6 @@ softfido_randomseed(const uint8_t seed[static 32])
 	memcpy(softfido_seed, seed, 32);
 }
 
-static void
-hexdump(const char *title, const void *buf, size_t len)
-{
-#if 0
-	(void)title;
-	(void)buf;
-	(void)len;
-#else
-	const unsigned char *p = buf;
-	size_t i;
-
-	fprintf(stderr, "# %s (%zu bytes)\n", title, len);
-	for (i = 0; i < len; i++) {
-		if ((i % 8) == 0)
-			fprintf(stderr, " ");
-		fprintf(stderr, " %02hhx", p[i]);
-		if ((i % 16) == 15)
-			fprintf(stderr, "\n");
-	}
-	if (i % 16)
-		fprintf(stderr, "\n");
-#endif
-}
-
 static int
 softfido_randomrefill(struct softfido *S)
 {
@@ -301,8 +277,6 @@ softfido_randomrefill(struct softfido *S)
 	 */
 	if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
 		goto out;
-	hexdump("randomkey", S->randombuf, 32);
-	hexdump("randomnonce", S->randomnonce, 24);
 	if (!EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, S->randombuf,
 		S->randomnonce))
 		goto out;
@@ -1160,8 +1134,6 @@ softfido_io_open(const char *path)
 	if ((S = malloc(sizeof(*S))) == NULL)
 		return NULL;
 	S->countsig = &countsig;
-	hexdump("masterkey", key, 32);
-	hexdump("randomseed", softfido_seed, 32);
 	memcpy(S->masterkey, key, 32);
 	S->nrandom = 0;
 	memset(S->randombuf, 0, sizeof(S->randombuf));
@@ -1169,7 +1141,6 @@ softfido_io_open(const char *path)
 	SHA256_Update(&sha256, key, sizeof(key));
 	SHA256_Update(&sha256, softfido_seed, sizeof(softfido_seed));
 	SHA256_Final(S->randombuf, &sha256);
-	hexdump("randomkey0", S->randombuf, 32);
 	return S;
 }
 

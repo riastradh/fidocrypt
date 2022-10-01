@@ -17,19 +17,15 @@ tmp=$(mktemp -d -t "${0##*/}.XXXXXXXX")
 
 fidocrypt ()
 {
-	echo >&2 '#' fidocrypt -Eq -D "$@"
-	$FIDOCRYPT -Eq -D "$@"
+	echo >&2 '#' fidocrypt -Eq "$@"
+	$FIDOCRYPT -Eq "$@"
 }
 
 cd -- "$tmp"
 
-: #head -c 32 </dev/urandom >key1
-: #head -c 32 </dev/urandom >key2
-: #head -c 32 </dev/urandom >key3
-
-echo DjJLSFBdhpk9R4JuAW97osFPr+uCFyOBXxpB3TAOYTo= | openssl base64 -d >key1
-echo 0DH8y5UtW9NbNPqa2Hs+lNsTV4BzuQYo8P7rekbyeNs= | openssl base64 -d >key2
-echo ETwupffVPSbIwVbMyFvDreCBGjJXelC154yN0oeQlxI= | openssl base64 -d >key3
+head -c 32 </dev/urandom >key1
+head -c 32 </dev/urandom >key2
+head -c 32 </dev/urandom >key3
 
 export FIDOCRYPT_RPID=fidocrypt.example.com
 echo '#' export FIDOCRYPT_RPID="$FIDOCRYPT_RPID"
