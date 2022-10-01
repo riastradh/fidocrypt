@@ -188,7 +188,7 @@ strip_pk(const fido_cred_t *cred, unsigned char **pkcanonp, size_t *npkcanonp,
 	}
 #else
 	const unsigned char *authdata_enc;
-	cbor_item_t *authdatacbor;
+	cbor_item_t *authdatacbor = NULL;
 	size_t nauthdata_enc;
 
 	if ((authdata_enc = fido_cred_authdata_ptr(cred)) == NULL ||
