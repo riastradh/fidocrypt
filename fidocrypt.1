@@ -484,5 +484,15 @@ is not meant for storing very large secrets or enrolling very large
 numbers of U2F/FIDO security keys \(em you are expected to use a
 primary key and a handful of backups stored in safe places, to encrypt
 a 32-byte secret key for another purpose.
+.Pp
+.Nm
+uses
+.Xr mlockall 2
+to lock memory into RAM so that it doesn't spill secrets onto swap
+space, in case swap is stored in cleartext.
+.Nm
+tries to reasonably limit memory utilization, but may run into resource
+limits because of this; see
+.Xr setrlimit 2 .
 .Sh BUGS
 User ids can't have NUL bytes.
