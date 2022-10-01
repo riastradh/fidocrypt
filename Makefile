@@ -39,6 +39,14 @@ SHLIB_EXPORT = map
 SHLIB_EXPORTFLAG = -Wl,--version-script=
 SHLIB_RPATHFLAG = -Wl,-R
 
+#SHLIB_EXT = dylib
+#SHLIB_LDFLAGS = -dynamiclib -Wl,-z,defs
+#SHLIB_NAMEFLAG = -Wl,-install_name,$(libdir)/
+#SHLIB_CFLAGS = -fPIC
+#SHLIB_EXPORT = list
+#SHLIB_EXPORTFLAG = -Wl,-exported_symbols_list,
+#SHLIB_RPATHFLAG = -Wl,-rpath,
+
 
 # Public targets
 #
@@ -158,6 +166,7 @@ clean-doc: .PHONY
 # libfidocrypt
 #
 LIB_fidocrypt = libfidocrypt.so.$(MAJOR_libfidocrypt)
+#LIB_fidocrypt = libfidocrypt.$(MAJOR_libfidocrypt).dylib
 MAJOR_libfidocrypt = 0
 MINOR_libfidocrypt = 0
 
