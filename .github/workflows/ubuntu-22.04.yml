@@ -26,6 +26,8 @@ jobs:
         sudo apt-get install \
           libcbor-dev \
           libfido2-dev \
+          libsqlite3-dev \
+          libssl-dev \
           ;
     - name: make
       run: >
