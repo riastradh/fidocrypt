@@ -281,7 +281,7 @@ check-t_softfido: t_softfido.exp t_softfido.out
 	diff -u t_softfido.exp t_softfido.out
 
 t_softfido.out: t_softfido
-	./t_softfido > $@.tmp && mv -f $@.tmp $@
+	./t_softfido > $@.tmp; mv -f $@.tmp $@
 
 t_softfido: fidocrypt
 t_softfido: t_softfido.sh.in
@@ -336,7 +336,7 @@ check-assert_decrypt: t_assert_decrypt.exp t_assert_decrypt.out
 	diff -u t_assert_decrypt.exp t_assert_decrypt.out
 
 t_assert_decrypt.out: t_assert_decrypt
-	./t_assert_decrypt > $@.tmp && mv -f $@.tmp $@
+	./t_assert_decrypt > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_assert_decrypt = \
 	assert_decrypt.c \
@@ -376,7 +376,7 @@ check-assert_kdf: t_assert_kdf.exp t_assert_kdf.out
 	diff -u t_assert_kdf.exp t_assert_kdf.out
 
 t_assert_kdf.out: t_assert_kdf
-	./t_assert_kdf > $@.tmp && mv -f $@.tmp $@
+	./t_assert_kdf > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_assert_kdf = \
 	assert_kdf.c \
@@ -413,7 +413,7 @@ check-cred_encrypt: t_cred_encrypt.exp t_cred_encrypt.out
 	diff -u t_cred_encrypt.exp t_cred_encrypt.out
 
 t_cred_encrypt.out: t_cred_encrypt
-	./t_cred_encrypt > $@.tmp && mv -f $@.tmp $@
+	./t_cred_encrypt > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_cred_encrypt = \
 	cred_encrypt.c \
@@ -450,7 +450,7 @@ check-cred_kdf: t_cred_kdf.exp t_cred_kdf.out
 	diff -u t_cred_kdf.exp t_cred_kdf.out
 
 t_cred_kdf.out: t_cred_kdf
-	./t_cred_kdf > $@.tmp && mv -f $@.tmp $@
+	./t_cred_kdf > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_cred_kdf = \
 	cred_kdf.c \
@@ -486,7 +486,7 @@ check-recover: t_recover.exp t_recover.out
 	diff -u t_recover.exp t_recover.out
 
 t_recover.out: t_recover
-	./t_recover > $@.tmp && mv -f $@.tmp $@
+	./t_recover > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_recover = \
 	recover.c \
@@ -520,7 +520,7 @@ check-dae: t_dae.exp t_dae.out
 	diff -u t_dae.exp t_dae.out
 
 t_dae.out: t_dae
-	./t_dae > $@.tmp && mv -f $@.tmp $@
+	./t_dae > $@.tmp; mv -f $@.tmp $@
 
 SRCS_t_dae = \
 	dae.c \
