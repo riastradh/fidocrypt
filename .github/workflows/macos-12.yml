@@ -32,4 +32,14 @@ jobs:
       env:
         PKG_CONFIG_PATH: /usr/local/opt/openssl@1.1/lib/pkgconfig
       run: >
-        make CPPFLAGS=-DHAVE_FIDO_ASSERT_SET_HMAC_SECRET\ -DHAVE_FIDO_CRED_AUTHDATA_RAW_PTR\ -DHAVE_FIDO_CUSTOM_TRANSPORT\ -DHAVE_FIDO_DEV_SET_SIGMASK\ -DHAVE_FIDO_DEV_WITH_INFO\ -DHAVE_FIDO_ED25519\ -DHAVE_FIDO_ES256_PK_FROM_EC_KEY_FIX\ -DHAVE_FIDO_RSA CFLAGS="$(pkg-config --cflags openssl)" LDFLAGS="$(pkg-config --libs-only-L openssl)"
+        make \
+          CPPFLAGS=-DHAVE_FIDO_ASSERT_SET_HMAC_SECRET\ -DHAVE_FIDO_CRED_AUTHDATA_RAW_PTR\ -DHAVE_FIDO_CUSTOM_TRANSPORT\ -DHAVE_FIDO_DEV_SET_SIGMASK\ -DHAVE_FIDO_DEV_WITH_INFO\ -DHAVE_FIDO_ED25519\ -DHAVE_FIDO_ES256_PK_FROM_EC_KEY_FIX\ -DHAVE_FIDO_RSA \
+          CFLAGS="$(pkg-config --cflags openssl)" \
+          LDFLAGS="$(pkg-config --libs-only-L openssl)" \
+          SHLIB_EXT=dylib \
+          SHLIB_LDFLAGS=-dynamiclib\ -Wl,-z,defs \
+          SHLIB_NAMEFLAG=-Wl,-install_name,'$(libdir)/' \
+          SHLIB_CFLAGS=-fPIC \
+          SHLIB_EXPORT=list \
+          SHLIB_EXPORTFLAG=-Wl,-exported_symbols_list, \
+          SHLIB_RPATHFLAG=-Wl,-rpath,
