@@ -290,7 +290,7 @@ check-t_softfido: t_softfido.exp t_softfido.out
 	diff -u t_softfido.exp t_softfido.out
 
 t_softfido.out: t_softfido
-	./t_softfido > $@.tmp && mv -f $@.tmp $@
+	./t_softfido | tee $@.tmp && mv -f $@.tmp $@
 
 t_softfido: fidocrypt
 t_softfido: t_softfido.sh.in
