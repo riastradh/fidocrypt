@@ -1,12 +1,6 @@
 name: fidocrypt on ubuntu-20.04
 
 on:
-  push:
-    paths-ignore:
-    - .gitignore
-    - COPYING
-    - PROTOCOL.md
-    - README.md
   pull_request:
     paths-ignore:
     - .gitignore
