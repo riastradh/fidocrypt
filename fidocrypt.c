@@ -2253,6 +2253,7 @@ int
 main(int argc, char **argv)
 {
 	struct rlimit rlim;
+	bool munlocked = false;
 	int ch, error = 0;
 
 	/* Set the program name for getprogname() later on.  */
@@ -2272,7 +2273,7 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "dD:EHhqr:S:v")) != -1) {
+	while ((ch = getopt(argc, argv, "dD:EHhqr:S:Uv")) != -1) {
 		switch (ch) {
 		case 'd':
 			S->debug = S->verbose = true;
@@ -2330,6 +2331,9 @@ main(int argc, char **argv)
 		case 'S':
 			S->softfido = true;
 			readsoftfidokey(optarg);
+			break;
+		case 'U':
+			munlocked = true;
 			break;
 		case 'v':
 			S->verbose = true;
@@ -2423,8 +2427,10 @@ main(int argc, char **argv)
 	 * sense in refusing to continue without it -- maybe swap is
 	 * encrypted anyway on such systems so it's a moot point.
 	 */
-	if (mlockall(MCL_FUTURE) == -1 && errno != ENOSYS)
-		err(1, "mlockall");
+	if (!munlocked) {
+		if (mlockall(MCL_FUTURE) == -1 && errno != ENOSYS)
+			err(1, "mlockall");
+	}
 	rlim.rlim_cur = 0;
 	rlim.rlim_max = 0;
 	if (setrlimit(RLIMIT_CORE, &rlim) == -1)
