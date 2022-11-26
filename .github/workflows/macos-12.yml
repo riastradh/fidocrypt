@@ -40,7 +40,7 @@ jobs:
           LDFLAGS="$(pkg-config --libs-only-L openssl)" \
           SHLIB_EXT=dylib \
           SHLIB_LDFLAGS=-dynamiclib \
-          SHLIB_NAMEFLAG=-Wl,-install_name,'$(libdir)/' \
+          SHLIB_NAMEFLAG=-Wl,-install_name,'@rpath/' \
           SHLIB_CFLAGS=-fPIC \
           SHLIB_EXPORT=list \
           SHLIB_EXPORTFLAG=-Wl,-exported_symbols_list, \
