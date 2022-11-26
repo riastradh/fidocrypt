@@ -1,0 +1,34 @@
+name: fidocrypt on ubuntu-22.04
+
+on:
+  push:
+    paths-ignore:
+    - .gitignore
+    - COPYING
+    - PROTOCOL.md
+    - README.md
+  pull_request:
+    paths-ignore:
+    - .gitignore
+    - COPYING
+    - PROTOCOL.md
+    - README.md
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
+    - name: install dependencies
+      run: >
+        sudo apt-get update &&
+        sudo apt-get install \
+          libcbor-dev \
+          libfido2-dev \
+          libsqlite3-dev \
+          libssl-dev \
+          ;
+    - name: make
+      run: >
+        make CPPFLAGS=-DHAVE_FIDO_ASSERT_SET_HMAC_SECRET\ -DHAVE_FIDO_CRED_AUTHDATA_RAW_PTR\ -DHAVE_FIDO_CUSTOM_TRANSPORT\ -DHAVE_FIDO_DEV_SET_SIGMASK\ -DHAVE_FIDO_DEV_WITH_INFO\ -DHAVE_FIDO_ED25519\ -DHAVE_FIDO_RSA
