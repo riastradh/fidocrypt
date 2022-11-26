@@ -30,7 +30,7 @@
 .Nd store a short secret in a file encrypted with U2F/FIDO
 .Sh SYNOPSIS
 .Nm
-.Op Fl dEHqv
+.Op Fl dEHqUv
 .Op Fl D Ar seed
 .Op Fl r Ar rpid
 .Op Fl S Ar softfidokey
@@ -81,6 +81,10 @@ option, you can set the
 environment variable; when both are specified, the
 .Fl r
 option takes precedence.
+.It Fl U
+Leave memory unlocked.
+Memory used by fidocrypt may be swapped to nonvolatile storage.
+This is unsafe except on systems with encrypted swap.
 .El
 .Ss Debug options
 The following options are meant for use during development, debugging,
