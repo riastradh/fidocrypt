@@ -82,7 +82,7 @@ features or bug fixes in libfido2:
 
 - `HAVE_FIDO_ASSERT_SET_HMAC_SECRET` (libfido2 >=1.7.0, https://github.com/Yubico/libfido2/issues/256)
 - `HAVE_FIDO_CRED_AUTHDATA_RAW_PTR` (libfido2 >=1.6.0, https://github.com/yubico/libfido2/issues/212)
-- `HAVE_FIDO_DEV_SET_SIGMASK` (libfido2 >=1.7.0, but broken on macOS, https://github.com/Yubico/libfido2/issues/251)
+- `HAVE_FIDO_DEV_SET_SIGMASK` (libfido2 >=1.7.0, https://github.com/Yubico/libfido2/issues/251, but broken on macOS, https://github.com/Yubico/libfido2/issues/650)
 - `HAVE_FIDO_ED25519` (libfido2 >=1.4.0)
 - `HAVE_FIDO_ES256_PK_FROM_EC_KEY_FIX` (libfido2 >=1.11.0, https://github.com/yubico/libfido2/issues/546)
 - `HAVE_FIDO_RSA` (libfido2 >=1.4.0)
