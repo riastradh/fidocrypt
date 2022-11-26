@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include <fido.h>
+#include <fido/es256.h>
 #include <openssl/ec.h>
 
 #ifndef HAVE_FIDO_ES256_PK_FROM_EC_KEY_FIX	/* XXX libfido2 <1.11.0 */
@@ -46,7 +47,7 @@ int
 fidocrypt_es256_pk_from_EC_KEY(es256_pk_t *pk, const EC_KEY *eckey)
 {
 #ifdef HAVE_FIDO_ES256_PK_FROM_EC_KEY_FIX	/* XXX libfido2 >=1.11.0 */
-	return es256_pk_from_EC_KEY(pk, ec);
+	return es256_pk_from_EC_KEY(pk, eckey);
 #else
 	const EC_POINT *point = EC_KEY_get0_public_key(eckey);
 	EC_GROUP *group = NULL;
