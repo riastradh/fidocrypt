@@ -47,15 +47,52 @@ and any U2F/FIDO security key enrolled in it with
 .Nm Cm enroll
 can be used with
 .Nm Cm get
-to decrypt the enclosed secret.
-The secret may then be used for other purposes, such as a
-.Xr cgd 4
-disk encryption key.
+to retrieve the stored secret.
 .Pp
 .Sy WARNING :
 .Nm
 is a work in progress.
 The file format is not yet stable.
+.Pp
+A cryptfile functions like an authentication database of U2F/FIDO
+security keys, similar to
+.Pa ~/.ssh/authorized_keys
+for ssh key pairs
+.Pq see Xr sshd 8 ,
+except the process of authenticating a U2F/FIDO security key with
+.Nm
+also retrieves the secret stored in the cryptfile.
+The secret may be used for other purposes such as a
+.Xr cgd 4
+disk encryption key.
+.Pp
+You create a cryptfile and enroll the first U2F/FIDO security key in it
+with
+.Nm Cm enroll .
+.Nm Cm enroll
+will generate the secret by default, but you can also provide it
+yourself with the
+.Fl s
+option.
+You can then retrieve the secret with
+.Nm Cm get ,
+or enroll additional U2F/FIDO security keys in the same cryptfile, as
+long as you have one of the enrolled U2F/FIDO security keys.
+.Ss Security model
+An adversary who can
+.Em read
+the cryptfile, but does not have access to any of the enrolled
+U2F/FIDO security keys, cannot retrieve the stored secret.
+.Pp
+No security is provided against an adversary who can
+.Em modify
+the cryptfile.
+.Pp
+The user of
+.Nm Cm get
+is responsible for keeping the output secret, e.g. using it only via
+.Xr cgdconfig 8
+parameters and never storing it elsewhere.
 .Ss Common options
 .Bl -tag -width Fl
 .It Fl v
@@ -168,8 +205,9 @@ even if
 .Nm Cm rename ,
 etc., are happening at the same time.
 .It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
-Enroll a new U2F/FIDO security key in the cryptfile to encrypt a short
-secret with it.
+Enroll a new U2F/FIDO security key in the cryptfile so that the
+security key can be used to retrieve the cryptfile's secret later.
+If the cryptfile does not exist yet, it is created with a new secret.
 .Bl -bullet
 .It
 If
@@ -191,7 +229,7 @@ Otherwise, if
 already exists and no
 .Ar secretfile
 is specified, you will be prompted to tap a U2F/FIDO security key that
-is already enrolled in order to derive the secret that is already
+is already enrolled in order to retrieve the secret that is already
 stored.
 .It
 Otherwise, if
@@ -319,11 +357,11 @@ output, or by nickname with
 .Ss Security properties
 .Bl -bullet
 .It
-An adversary without the cryptfile can't recover the stored secret,
+An adversary without the cryptfile can't retrieve the stored secret,
 even if they have all of the enrolled U2F/FIDO devices.
 .It
 An adversary without at least one of the U2F/FIDO devices enrolled in a
-cryptfile can't recover the secret stored in it, even if they have the
+cryptfile can't retrieve the secret stored in it, even if they have the
 cryptfile.
 .It
 An adversary without at least one of the U2F/FIDO devices enrolled in a
