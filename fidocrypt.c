@@ -1756,7 +1756,10 @@ cmd_enroll(int argc, char **argv)
 	}
 
 	/* Get a credential from one of the devices.  */
-	MSG("tap key to enroll; waiting...\n");
+	if (nickname)
+		MSG("tap key `%s' to enroll; waiting...\n", nickname);
+	else
+		MSG("tap new key to enroll; waiting...\n");
 	cred = run_thread_per_dev(enroll_thread);
 
 	/* Get the credential id.  */
@@ -1770,7 +1773,10 @@ cmd_enroll(int argc, char **argv)
 	 */
 	clear_credentials();
 	set_credential(credential_id, ncredential_id);
-	MSG("tap key again to verify; waiting...\n");
+	if (nickname)
+		MSG("tap key `%s' again to verify; waiting...\n", nickname);
+	else
+		MSG("tap new key again to verify; waiting...\n");
 	assert = run_thread_per_dev(get_thread);
 
 	/* Encrypt the secret.  */
