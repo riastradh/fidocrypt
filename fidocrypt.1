@@ -68,8 +68,10 @@ the first U2F/FIDO security key in it with
 .Nm Cm enroll .
 You can then retrieve the secret with
 .Nm Cm get ,
-or enroll additional U2F/FIDO security keys in the same cryptfile, as
-long as you have one of the enrolled U2F/FIDO security keys.
+or enroll more U2F/FIDO security keys in the same cryptfile, as long as
+you have one of the already enrolled U2F/FIDO security keys.
+You can later revoke enrolled keys with
+.Nm Cm unenroll .
 .Ss Security properties
 .Bl -bullet
 .It
@@ -373,25 +375,62 @@ Overridden by the
 option.
 .El
 .Sh EXAMPLES
+Create a cryptfile and enroll a new U2F/FIDO security key in it,
+nicknamed
+.Ql yubi5nano :
 .Bd -literal -offset indent
 $ fidocrypt enroll -n yubi5nano example.crypt
 tap key to enroll; waiting...
 tap key again to verify; waiting...
+.Ed
+.Pp
+List the enrolled keys:
+.Bd -literal -offset indent
 $ fidocrypt list example.crypt
 1 yubi5nano
+.Ed
+.Pp
+Get the stored secret (for illustration only \(em don't put your
+secrets anywhere visible!):
+.Bd -literal -offset indent
 $ fidocrypt get example.crypt
 fidocrypt: specify an output format (-F)
 Usage: fidocrypt get -F <format> <cryptfile>
 $ fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
+.Ed
+.Pp
+Enroll a second U2F/FIDO security key,
+.Ql redsolokey
+\(em tap
+.Ql yubi5nano
+first to authenticate, and then tap
+.Ql redsolokey
+twice to enroll it:
+.Bd -literal -offset indent
 $ fidocrypt enroll -n redsolokey example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
 tap key again to verify; waiting...
+.Ed
+.Pp
+Either one,
+.Ql yubi5nano
+or
+.Ql redsolokey ,
+can be used to retrieve the secret now:
+.Bd -literal -offset indent
 $ fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
+.Ed
+.Pp
+Rename
+.Ql redsolokey
+to
+.Ql blacksolokey :
+.Bd -literal -offset indent
 $ fidocrypt rename -n redsolokey example.crypt blacksolokey
 $ fidocrypt list example.crypt
 2 blacksolokey
