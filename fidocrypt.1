@@ -131,11 +131,13 @@ secret in the host's memory once decrypted.
 .Ss Common options
 .Bl -tag -width Fl
 .It Fl q
-Quiet \(em suppress messages to the tty prompting taps.
+Quiet.
+Suppress messages to the tty prompting taps.
 Error messages may still be printed to stderr.
 .It Fl v
-Verbose output: print the vendor and product ids of the devices being
-queried to stderr.
+Verbose.
+Print the vendor and product ids of the devices being queried to
+stderr.
 .El
 .Ss Commands
 .Bl -tag -width Cm
@@ -182,7 +184,7 @@ it to be nonempty.
 If omitted, defaults to the value of the
 .Ev FIDOCRYPT_USERNAME
 environment variable if set, or to
-.Ql fidocrypt(1)
+.Sq Li fidocrypt(1)
 otherwise.
 .It Fl u Ar userid
 Set user id to send to the U2F/FIDO security key.
@@ -194,7 +196,7 @@ it to be nonempty.
 If omitted, defaults to the value of the
 .Ev FIDOCRYPT_USERID
 environment variable if set, or to
-.Ql fidocrypt
+.Sq Li fidocrypt
 otherwise.
 .It Fl n Ar nickname
 Set a nickname in the cryptfile for the newly enrolled U2F/FIDO
@@ -261,13 +263,13 @@ exits with status 0 only if the U2F/FIDO security key is enrolled in
 and with status >0 otherwise or if an error occurs.
 .Pp
 The supported formats are:
-.Bl -tag -width base64
-.It none
+.Bl -tag -width ".Li base64"
+.It Li none
 Don't actually print anything \(em only verify that the U2F/FIDO
 security key is enrolled.
-.It raw
+.It Li raw
 Print the raw bytes of the secret.
-.It base64
+.It Li base64
 Print the secret encoded in base64.
 .El
 .Pp
@@ -279,9 +281,8 @@ raw bytes.
 .It Cm list Ar cryptfile
 List the credentials in
 .Ar cryptfile ,
-by internally assigned numeric id and by the optional
-.Ar nickname
-passed to
+by internally assigned numeric id and by the optional nickname passed
+to
 .Nm Cm enroll .
 .It Cm rename Oo Fl i Ar id Oc Oo Fl n Ar nickname Oc Ar cryptfile Ar newname
 Set a nickname for an existing U2F/FIDO security key enrolled in
@@ -375,7 +376,7 @@ log into with U2F/FIDO.
 If omitted, defaults to the value of the
 .Ev FIDOCRYPT_RPID
 environment variable if set, or to
-.Ql fidocrypt:\&
+.Sq Li fidocrypt:\&
 otherwise.
 .It Fl S Ar softfidokey
 Instead of whatever U2F/FIDO devices are available in the system, use a
