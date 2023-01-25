@@ -66,14 +66,9 @@ only be retrieved again with both the cryptfile
 .Em and
 one of the enrolled U2F/FIDO security keys.
 .Pp
-You create a cryptfile and enroll the first U2F/FIDO security key in it
-with
+You can create a cryptfile with a freshly generated secret and enroll
+the first U2F/FIDO security key in it with
 .Nm Cm enroll .
-.Nm Cm enroll
-will generate the secret by default, but you can also provide it
-yourself with the
-.Fl s
-option.
 You can then retrieve the secret with
 .Nm Cm get ,
 or enroll additional U2F/FIDO security keys in the same cryptfile, as
@@ -204,92 +199,69 @@ even if
 .Nm Cm enroll ,
 .Nm Cm rename ,
 etc., are happening at the same time.
-.It Cm enroll Fl N Ar username Fl u Ar userid Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
+.It Cm enroll Oo Fl N Ar username Oc Oo Fl u Ar userid Oc Oo Fl n Ar nickname Oc Oo Fl s Ar secretfile Oc Oo Fl t Ar type Oc Ar cryptfile
 Enroll a new U2F/FIDO security key in the cryptfile so that the
 security key can be used to retrieve the cryptfile's secret later.
-If the cryptfile does not exist yet, it is created with a new secret.
-.Bl -bullet
-.It
-If
-.Ar secretfile
-is specified, it will be read and its verbatim contents will be chosen
-as the secret.
-If
-.Ar secretfile
-is
-.Sq Li - ,
-the secret will be read from stdin.
-It must be at most 65536 bytes long \(em
-.Nm
-is not meant for storing long secrets, only short secrets such as
-encryption keys.
-.It
-Otherwise, if
-.Ar cryptfile
-already exists and no
-.Ar secretfile
-is specified, you will be prompted to tap a U2F/FIDO security key that
-is already enrolled in order to retrieve the secret that is already
-stored.
-.It
-Otherwise, if
-.Ar cryptfile
-does not exist and no
-.Ar secretfile
-is specified,
-.Nm
-will generate a 32-byte string uniformly at random and use that as the
-secret and create a new cryptfile.
-.El
+.Pp
+If the cryptfile does not exist yet, it is created with a new 32-byte
+secret chosen uniformly at random.
+Otherwise, you will be prompted to tap an enrolled U2F/FIDO security
+key.
 .Pp
 You will then be prompted to tap a new U2F/FIDO security key, not
 currently enrolled in
 .Ar cryptfile ,
 to enroll, and then tap it again to verify the enrollment.
 .Pp
-.Sy WARNING :
-If you specify
-.Fl s Ar secretfile
-for a cryptfile that already has a secret stored in it,
+Options:
+.Bl -tag -width Fl
+.It Fl N Ar username
+Set username to send to the U2F/FIDO security key.
+This has no particular meaning to
 .Nm
-has no way to verify that it is the
-.Em same
-secret as is already stored, so you may end up with a cryptfile that
-stores different secrets for different U2F/FIDO security keys.
-You should use this only in an application that has already gotten the
-stored secret with
-.Nm Cm get
-and still has it in memory, in order to reduce the amount of device
-tapping.
-.Pp
-The option
-.Fl n Ar nickname
-lets you specify a nickname for the U2F/FIDO security key.
+but some U2F/FIDO security keys may display it on a screen.
+Overrides
+.Ev FIDOCRYPT_USERNAME .
+.It Fl u Ar userid
+Set user id to send to the U2F/FIDO security key.
+This has no particular meaning to
+.Nm
+but some U2F/FIDO security keys may display it on a screen.
+Overrides
+.Ev FIDOCRYPT_USERID .
+.It Fl n Ar nickname
+Set a nickname in the cryptfile for the newly enrolled U2F/FIDO
+security key, for display in
 .Nm Cm list
-will display the nickname, and you can use the nickname with
-.Nm Cm unenroll .
+and for use with
+.Nm Cm unenroll
+or
+.Nm Cm rename .
+.Pp
 A nickname must be a UTF-8 string at most 128 bytes long with no
 control characters (Unicode general category Cc, code points U+0000
 through U+001f and U+007f through U+009f).
+.It Fl s Ar secretfile
+Override the secret by using the content of
+.Ar secretfile ,
+or standard input if
+.Ar secretfile
+is
+.Ql - ,
+instead of an existing stored secret or a newly generated one.
+.Ar secretfile
+must be at most 65536 bytes long.
 .Pp
-The
-.Fl N Ar username
-and
-.Fl u Ar userid
-arguments are mandatory, but
+.Sy WARNING :
+Dangerous option \(em handle with care.
+Meant only for testing purposes or for using
 .Nm
-assigns them no particular meaning.
-U2F/FIDO devices with displays might show them on the display.
-You may also set the environment variables
-.Ev FIDOCRYPT_USERNAME
-and
-.Ev FIDOCRYPT_USERID
-instead; when both the environment variable and the command-line
-argument are specified, the command-line argument takes precedence.
-.Pp
-The option
-.Fl t Ar type
-specifies a credential type.
+from an application that has already retrieved the secret using another
+U2F/FIDO security key, in order to reduce the amount of device tapping.
+If abused, may corrupt a cryptfile, causing it to store different
+secrets for different U2F/FIDO security keys.
+.It Fl t Ar type
+Choose a credential type.
 The following types are supported:
 .Pp
 .Bl -tag -width ".Li es256-p256" -compact
@@ -305,6 +277,7 @@ uses
 .Li es256-p256 ;
 essentially all U2F/FIDO devices support it, and it is the only
 credential type supported by U2F-only devices.
+.El
 .It Cm get Fl F Ar format Ar cryptfile
 Get the secret stored in the cryptfile and print it to stdout in the
 specified format.
