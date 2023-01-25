@@ -70,21 +70,34 @@ You can then retrieve the secret with
 .Nm Cm get ,
 or enroll additional U2F/FIDO security keys in the same cryptfile, as
 long as you have one of the enrolled U2F/FIDO security keys.
-.Ss Security model
+.Ss Security properties
+.Bl -bullet
+.It
 An adversary who can
 .Em read
-the cryptfile, but does not have access to any of the enrolled
-U2F/FIDO security keys, cannot retrieve the stored secret.
+the cryptfile but doesn't have any of the U2F/FIDO devices enrolled in
+it can't retrieve the secret stored in it, or fool
+.Nm Cm get
+into exiting with success.
+.It
+An adversary who has any or all of the U2F/FIDO devices enrolled in a
+cryptfile, but who can't read the cryptfile, can't retrieve the secret
+stored in it.
+.El
 .Pp
 No security is provided against an adversary who can
 .Em modify
-the cryptfile.
+a cryptfile.
 .Pp
 The user of
 .Nm Cm get
 is responsible for keeping the output secret, e.g. using it only via
 .Xr cgdconfig 8
-parameters and never storing it elsewhere.
+and never storing it elsewhere.
+.Nm
+can't defend against a compromised host while cryptfile is being
+decrypted, and can't defend against any attacker who has access to the
+stored secret in the host's memory once decrypted.
 .Ss Common options
 .Bl -tag -width Fl
 .It Fl v
@@ -251,39 +264,6 @@ as shown in
 output, or by nickname with
 .Fl n .
 .El
-.Ss Security properties
-.Bl -bullet
-.It
-An adversary without the cryptfile can't retrieve the stored secret,
-even if they have all of the enrolled U2F/FIDO devices.
-.It
-An adversary without at least one of the U2F/FIDO devices enrolled in a
-cryptfile can't retrieve the secret stored in it, even if they have the
-cryptfile.
-.It
-An adversary without at least one of the U2F/FIDO devices enrolled in a
-cryptfile can't fool
-.Nm Cm get
-into passing with it.
-.El
-.Pp
-N.B.:
-.Nm
-.Em does not
-defend against a compromised host while cryptfile is being decrypted,
-and can't defend against any attacker who has access to the stored
-secret in the host's memory once decrypted.
-.Pp
-.Nm
-also doesn't defend against a poorly designed U2F/FIDO device that both
-(a) exposes the public key in the credential id and (b) lacks support
-for the
-.Li hmac-secret
-extension.
-Fortunately, credential ids are almost always either ciphertext
-themselves, encrypted with a secret key stored on the U2F/FIDO device,
-or a random input to a pseudorandom function under a secret key stored
-on the U2F/FIDO device.
 .Ss Debug options
 Full synopsis:
 .Pp
@@ -394,7 +374,7 @@ option.
 .El
 .Sh EXAMPLES
 .Bd -literal -offset indent
-$ fidocrypt enroll -N Falken -u falken -n yubi5nano example.crypt
+$ fidocrypt enroll -n yubi5nano example.crypt
 tap key to enroll; waiting...
 tap key again to verify; waiting...
 $ fidocrypt list example.crypt
@@ -405,7 +385,7 @@ Usage: fidocrypt get -F <format> <cryptfile>
 $ fidocrypt get -F base64 example.crypt
 tap key; waiting...
 yTpyXp1Hk3F48Wx3Mp7B2gNOChPyPW0VOH3C7l5AM9A=
-$ fidocrypt enroll -N Falken -u falken -n redsolokey example.crypt
+$ fidocrypt enroll -n redsolokey example.crypt
 tap a key that's already enrolled; waiting...
 tap key to enroll; waiting...
 tap key again to verify; waiting...
@@ -504,10 +484,27 @@ works only with U2F devices, and with FIDO2 devices that either
 extension.
 .Nm
 also only supports ECDSA over NIST P-256 and Ed25519 to date.
-(Fortunately, essentially all U2F/FIDO devices on the market as of 2020
+Fortunately, essentially all U2F/FIDO devices on the market as of 2020
 support ECDSA over NIST P-256 \(em and it is even hard to find ones
 that support any other credential types such as
-.Li RS256 . )
+.Li RS256 .
+.Pp
+.Nm
+can't defend against a poorly designed U2F/FIDO device that both
+(a) exposes the public key in the credential id and (b) lacks support
+for the
+.Li hmac-secret
+extension.
+Fortunately, credential ids are almost always either ciphertext
+themselves, encrypted with a secret key stored on the U2F/FIDO device,
+or a random input to a pseudorandom function under a secret key stored
+on the U2F/FIDO device.
+Nevertheless, as with most U2F-based systems, you should use
+.Nm
+.Em in addition to
+a second factor for authentication like a
+.Xr cgd 4
+passsphrase.
 .Pp
 .Nm
 is not meant for storing very large secrets or enrolling very large
