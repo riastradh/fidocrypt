@@ -208,6 +208,10 @@ or
 A nickname must be a UTF-8 string at most 128 bytes long with no
 control characters (Unicode general category Cc, code points U+0000
 through U+001f and U+007f through U+009f).
+.Pp
+U2F/FIDO security keys enrolled without a nickname can still be renamed
+or unenrolled by numeric id shown in
+.Nm Cm list .
 .It Fl s Ar secretfile
 Override the secret by using the content of
 .Ar secretfile ,
