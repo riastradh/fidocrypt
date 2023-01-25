@@ -1664,7 +1664,8 @@ cmd_enroll(int argc, char **argv)
 		 * libfido2 doesn't seem to provide a way to list all
 		 * the algorithms we support, even though CTAP2 devices
 		 * will handle such a list -- we have to request
-		 * exactly one type.
+		 * exactly one type:
+		 * https://github.com/Yubico/libfido2/issues/140
 		 */
 		S->type = COSE_ES256;
 	}
