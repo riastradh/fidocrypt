@@ -27,7 +27,7 @@
 .Os
 .Sh NAME
 .Nm fidocrypt
-.Nd store a short secret in a file encrypted with U2F/FIDO
+.Nd keep a short secret in a file encrypted with U2F/FIDO
 .Sh SYNOPSIS
 .Nm
 .Op Fl qv
@@ -64,22 +64,22 @@
 .Sh DESCRIPTION
 The
 .Nm
-utility stores a short secret in a file encrypted with U2F/FIDO
-security keys.
+utility keeps a short secret in a file encrypted with U2F/FIDO security
+keys.
 The file is called a
 .Em cryptfile ,
 and any U2F/FIDO security key enrolled in it with
 .Nm Cm enroll
 can be used with
 .Nm Cm get
-to retrieve the stored secret.
+to retrieve the secret.
 .Pp
 .Sy WARNING :
 .Nm
 is a work in progress.
 The file format is not yet stable.
 .Pp
-Each cryptfile stores exactly one secret, and functions as a list of
+Each cryptfile keeps exactly one secret, and functions as a list of
 U2F/FIDO security keys allowed to retrieve the secret, similar to how
 .Pa ~/.ssh/authorized_keys
 functions as a list of ssh private keys allowed to log in as a user
@@ -106,13 +106,13 @@ You can later revoke enrolled keys with
 An adversary who can
 .Em read
 the cryptfile but doesn't have any of the U2F/FIDO devices enrolled in
-it can't retrieve the secret stored in it, or fool
+it can't retrieve the secret in it, or fool
 .Nm Cm get
 into exiting with success.
 .It
 An adversary who has any or all of the U2F/FIDO devices enrolled in a
 cryptfile, but who can't read the cryptfile, can't retrieve the secret
-stored in it.
+in it.
 .El
 .Pp
 No security is provided against an adversary who can
@@ -125,9 +125,9 @@ is responsible for keeping the output secret, e.g. using it only via
 .Xr cgdconfig 8
 and never storing it elsewhere.
 .Nm
-can't defend against a compromised host while cryptfile is being
+can't defend against a compromised host while a cryptfile is being
 decrypted, and can't defend against any adversary who has access to the
-stored secret in the host's memory once decrypted.
+secret in the host's memory once decrypted.
 .Ss Common options
 .Bl -tag -width Fl
 .It Fl v
@@ -219,7 +219,7 @@ or standard input if
 .Ar secretfile
 is
 .Ql - ,
-instead of an existing stored secret or a newly generated one.
+instead of the existing secret or a newly generated one.
 .Ar secretfile
 must be at most 65536 bytes long.
 .Pp
@@ -229,7 +229,7 @@ Meant only for testing purposes or for using
 .Nm
 from an application that has already retrieved the secret using another
 U2F/FIDO security key, in order to reduce the amount of device tapping.
-If abused, may corrupt a cryptfile, causing it to store different
+If abused, may corrupt a cryptfile, causing it to yield different
 secrets for different U2F/FIDO security keys.
 .It Fl t Ar type
 Choose a credential type.
@@ -250,8 +250,8 @@ essentially all U2F/FIDO devices support it, and it is the only
 credential type supported by U2F-only devices.
 .El
 .It Cm get Fl F Ar format Ar cryptfile
-Get the secret stored in the cryptfile and print it to stdout in the
-specified format.
+Get the secret in the cryptfile and print it to stdout in the specified
+format.
 You will be prompted to tap a U2F/FIDO security key that is enrolled in
 .Ar cryptfile .
 The supported formats are:
@@ -260,9 +260,9 @@ The supported formats are:
 Don't actually print anything \(em only verify that the U2F/FIDO
 security key is enrolled.
 .It raw
-Print the raw bytes of the stored secret.
+Print the raw bytes of the secret.
 .It base64
-Print the stored secret encoded in base64.
+Print the secret encoded in base64.
 .El
 .Pp
 The
@@ -422,7 +422,7 @@ $ fidocrypt list example.crypt
 1 yubi5nano
 .Ed
 .Pp
-Get the stored secret (for illustration only \(em don't put your
+Get the cryptfile's secret (for illustration only \(em don't put your
 secrets anywhere visible!):
 .Bd -literal -offset indent
 $ fidocrypt get example.crypt
@@ -578,7 +578,7 @@ a second factor for authentication like a
 passsphrase.
 .Pp
 .Nm
-is not meant for storing very large secrets or enrolling very large
+is not meant for keeping very large secrets or enrolling very large
 numbers of U2F/FIDO security keys \(em you are expected to use a
 primary key and a handful of backups stored in safe places, to encrypt
 a 32-byte secret key for another purpose.
