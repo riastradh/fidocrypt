@@ -254,6 +254,12 @@ Get the secret in the cryptfile and print it to stdout in the specified
 format.
 You will be prompted to tap a U2F/FIDO security key that is enrolled in
 .Ar cryptfile .
+.Pp
+.Nm Cm get
+exits with status 0 only if the U2F/FIDO security key is enrolled in
+.Ar cryptfile ,
+and with status >0 otherwise or if an error occurs.
+.Pp
 The supported formats are:
 .Bl -tag -width base64
 .It none
