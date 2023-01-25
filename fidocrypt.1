@@ -445,6 +445,9 @@ None of the available U2F/FIDO security keys is enrolled in the
 cryptfile when trying to retrieve the secret from it, or all of the
 available U2F/FIDO security keys are already enrolled when trying to
 enroll a new one.
+This can also happen if you explicitly specify an empty username or
+user id in
+.Nm Cm enroll .
 .El
 .Sh SEE ALSO
 .Xr pamu2fcfg 1 ,
