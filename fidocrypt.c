@@ -59,6 +59,24 @@
 #define	arraycount(A)	(sizeof(A)/sizeof((A)[0]))
 #define	errc(S,E,M...)	(errno = (E), err(S, ##M))
 
+/*
+ * The default relying party id must not match any rpid for webauthn or
+ * other protocols like ssh to avoid cross-protocol attacks.  OpenSSH
+ * uses `ssh:' as the default relying party id, even though `ssh:' is a
+ * valid name in the DNS -- just not in, say, URLs or email addresses,
+ * and not likely to appear in the root zone.
+ *
+ * We follow suit here for now in using `fidocrypt:' as the default,
+ * even though it seems imprudent to lay claim in an unorganized global
+ * namespace like this.  In principle this could be used in an
+ * authentication module on a web site that coughs up a secret key as a
+ * side effect of login, so we don't currently prohibit relying party
+ * ids that overlap with webauthn -- we just don't use them by default.
+ *
+ * The username and user id are only for display on U2F/FIDO security
+ * keys with screens during enrollment.
+ */
+#define	DEFAULT_RPID		"fidocrypt:"
 #define	DEFAULT_USERNAME	"fidocrypt(1)"
 #define	DEFAULT_USERID		"fidocrypt"
 
@@ -2360,11 +2378,10 @@ main(int argc, char **argv)
 	if (strcmp(argv[0], "help") == 0)
 		usage();
 
-	/* Verify we have all the arguments we need.  */
+	/* Fill in default arguments.  */
 	if (S->rp_id == NULL &&
 	    (S->rp_id = getenv("FIDOCRYPT_RPID")) == NULL) {
-		warnx("specify relying party id (-r or FIDOCRYPT_RPID)");
-		error = 1;
+		S->rp_id = DEFAULT_RPID;
 	}
 
 	/*
