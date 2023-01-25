@@ -54,17 +54,17 @@ to retrieve the stored secret.
 is a work in progress.
 The file format is not yet stable.
 .Pp
-A cryptfile functions like an authentication database of U2F/FIDO
-security keys, similar to
+Each cryptfile stores exactly one secret, and functions as a list of
+U2F/FIDO security keys allowed to retrieve the secret, similar to how
 .Pa ~/.ssh/authorized_keys
-for ssh key pairs
-.Pq see Xr sshd 8 ,
-except the process of authenticating a U2F/FIDO security key with
-.Nm
-also retrieves the secret stored in the cryptfile.
-The secret may be used for other purposes such as a
+functions as a list of ssh private keys allowed to log in as a user
+.Pq see Xr sshd 8 .
+The cryptfile secret may be used for other purposes such as a
 .Xr cgd 4
-disk encryption key.
+disk encryption key; once any copies of the secret are erased, it can
+only be retrieved again with both the cryptfile
+.Em and
+one of the enrolled U2F/FIDO security keys.
 .Pp
 You create a cryptfile and enroll the first U2F/FIDO security key in it
 with
