@@ -31,8 +31,36 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl qv
-.Ar command
-.Op Ar args...
+.Cm backup
+.Ar cryptfile
+.Ar backup
+.Nm
+.Op Fl qv
+.Cm enroll
+.Op Fl n Ar nickname
+.Ar cryptfile
+.Nm
+.Op Fl qv
+.Cm get
+.Fl F Ar format
+.Ar cryptfile
+.Nm
+.Op Fl qv
+.Cm list
+.Ar cryptfile
+.Nm
+.Op Fl qv
+.Cm rename
+.Op Fl i Ar id
+.Op Fl n Ar nickname
+.Ar cryptfile
+.Ar newname
+.Nm
+.Op Fl qv
+.Cm unenroll
+.Op Fl i Ar id
+.Op Fl n Ar nickname
+.Ar cryptfile
 .Sh DESCRIPTION
 The
 .Nm
