@@ -30,10 +30,7 @@
 .Nd store a short secret in a file encrypted with U2F/FIDO
 .Sh SYNOPSIS
 .Nm
-.Op Fl dEHqUv
-.Op Fl D Ar seed
-.Op Fl r Ar rpid
-.Op Fl S Ar softfidokey
+.Op Fl qv
 .Ar command
 .Op Ar args...
 .Sh DESCRIPTION
@@ -96,84 +93,6 @@ queried to stderr.
 .It Fl q
 Quiet \(em suppress messages to the tty prompting taps.
 Error messages may still be printed to stderr.
-.El
-.Ss Debug options
-The following options are meant for use during development, debugging,
-and/or testing only, not for normal use.
-.Bl -tag -width Fl
-.It Fl d
-Debug output: print various internal diagnostics to stderr.
-.Pp
-For additional (and very verbose) debug output including the raw
-U2F/CTAP transactions, which might include secrets, you may also set
-the
-.Ev FIDO_DEBUG
-environment variable.
-.It Fl D Ar seed
-Deterministic mode, pseudorandomized by
-.Ar seed .
-Challenges and, with the
-.Fl S
-option, enrolled keys, are deterministically generated from
-.Ar seed .
-.Pp
-Not everything is deterministic: signatures generated with the
-.Fl S
-option are still randomized (bug), and parts of sqlite3 may still be
-randomized too.
-.It Fl E
-Allow experimental cryptfile formats.
-.It Fl H
-Disable the
-.Li hmac-secret
-extension.
-By default,
-.Nm
-will automatically take advantage of
-.Li hmac-secret
-on any device that supports it.
-.Pp
-.Li hmac-secret
-must be enabled or disabled for both
-.Nm Cm enroll
-and
-.Nm Cm get ;
-disabling it for one and enabling it for the other will not work.
-When
-.Li hmac-secret
-is disabled, or with devices that don't support it, only
-.Li ES256
-keys over
-.Li P256
-(that is, ECDSA with SHA-256 over the curve NIST P-256, also known as
-secp256r1)
-are supported.
-.It Fl r Ar rpid
-Set the U2F/FIDO relying party id.
-.Pp
-.Sy Don't
-set the relying party id to the domain name of any web site that you
-log into with U2F/FIDO.
-.Pp
-If omitted, defaults to the value of the
-.Ev FIDOCRYPT_RPID
-environment variable if set, or to
-.Ql fidocrypt:
-otherwise.
-.It Fl S Ar softfidokey
-Instead of whatever U2F/FIDO devices are available in the system, use a
-software U2F/FIDO key stored at
-.Ar softfidokey .
-May be specified multiple times to load multiple software keys.
-.Pp
-This option is intended only for internal testing.
-The format of the file
-.Ar softfidokey
-is unstable; consult the implementation for details.
-.It Fl U
-Leave memory unlocked.
-Memory used by fidocrypt may be swapped to nonvolatile storage.
-This is unsafe except on systems with encrypted swap.
 .El
 .Ss Commands
 .Bl -tag -width Cm
@@ -365,6 +284,94 @@ Fortunately, credential ids are almost always either ciphertext
 themselves, encrypted with a secret key stored on the U2F/FIDO device,
 or a random input to a pseudorandom function under a secret key stored
 on the U2F/FIDO device.
+.Ss Debug options
+Full synopsis:
+.Pp
+.Nm
+.Op Fl dEHqUv
+.Op Fl D Ar seed
+.Op Fl r Ar rpid
+.Op Fl S Ar softfidokey
+.Ar command
+.Op Ar args...
+.Pp
+The following options are meant for use during development, debugging,
+and/or testing only, not for normal use.
+.Bl -tag -width Fl
+.It Fl d
+Debug output: print various internal diagnostics to stderr.
+.Pp
+For additional (and very verbose) debug output including the raw
+U2F/CTAP transactions, which might include secrets, you may also set
+the
+.Ev FIDO_DEBUG
+environment variable.
+.It Fl D Ar seed
+Deterministic mode, pseudorandomized by
+.Ar seed .
+Challenges and, with the
+.Fl S
+option, enrolled keys, are deterministically generated from
+.Ar seed .
+.Pp
+Not everything is deterministic: signatures generated with the
+.Fl S
+option are still randomized (bug), and parts of sqlite3 may still be
+randomized too.
+.It Fl E
+Allow experimental cryptfile formats.
+.It Fl H
+Disable the
+.Li hmac-secret
+extension.
+By default,
+.Nm
+will automatically take advantage of
+.Li hmac-secret
+on any device that supports it.
+.Pp
+.Li hmac-secret
+must be enabled or disabled for both
+.Nm Cm enroll
+and
+.Nm Cm get ;
+disabling it for one and enabling it for the other will not work.
+When
+.Li hmac-secret
+is disabled, or with devices that don't support it, only
+.Li ES256
+keys over
+.Li P256
+(that is, ECDSA with SHA-256 over the curve NIST P-256, also known as
+secp256r1)
+are supported.
+.It Fl r Ar rpid
+Set the U2F/FIDO relying party id.
+.Pp
+.Sy Don't
+set the relying party id to the domain name of any web site that you
+log into with U2F/FIDO.
+.Pp
+If omitted, defaults to the value of the
+.Ev FIDOCRYPT_RPID
+environment variable if set, or to
+.Ql fidocrypt:
+otherwise.
+.It Fl S Ar softfidokey
+Instead of whatever U2F/FIDO devices are available in the system, use a
+software U2F/FIDO key stored at
+.Ar softfidokey .
+May be specified multiple times to load multiple software keys.
+.Pp
+This option is intended only for internal testing.
+The format of the file
+.Ar softfidokey
+is unstable; consult the implementation for details.
+.It Fl U
+Leave memory unlocked.
+Memory used by fidocrypt may be swapped to nonvolatile storage.
+This is unsafe except on systems with encrypted swap.
+.El
 .Sh ENVIRONMENT
 .Bl -tag -width ".Ev FIDOCRYPT_USERNAME"
 .It Ev FIDOCRYPT_RPID
