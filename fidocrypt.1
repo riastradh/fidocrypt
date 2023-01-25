@@ -219,16 +219,26 @@ Options:
 Set username to send to the U2F/FIDO security key.
 This has no particular meaning to
 .Nm
-but some U2F/FIDO security keys may display it on a screen.
-Overrides
-.Ev FIDOCRYPT_USERNAME .
+but some U2F/FIDO security keys may display it on a screen or require
+it to be nonempty.
+.Pp
+If omitted, defaults to the value of the
+.Ev FIDOCRYPT_USERNAME
+environment variable if set, or to
+.Ql fidocrypt(1)
+otherwise.
 .It Fl u Ar userid
 Set user id to send to the U2F/FIDO security key.
 This has no particular meaning to
 .Nm
-but some U2F/FIDO security keys may display it on a screen.
-Overrides
-.Ev FIDOCRYPT_USERID .
+but some U2F/FIDO security keys may display it on a screen or require
+it to be nonempty.
+.Pp
+If omitted, defaults to the value of the
+.Ev FIDOCRYPT_USERID
+environment variable if set, or to
+.Ql fidocrypt
+otherwise.
 .It Fl n Ar nickname
 Set a nickname in the cryptfile for the newly enrolled U2F/FIDO
 security key, for display in

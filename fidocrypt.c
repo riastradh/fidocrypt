@@ -59,6 +59,9 @@
 #define	arraycount(A)	(sizeof(A)/sizeof((A)[0]))
 #define	errc(S,E,M...)	(errno = (E), err(S, ##M))
 
+#define	DEFAULT_USERNAME	"fidocrypt(1)"
+#define	DEFAULT_USERID		"fidocrypt"
+
 static const char *schema[] = {
 #include "fidocrypt1.i"
 };
@@ -1643,16 +1646,14 @@ cmd_enroll(int argc, char **argv)
 		usage_enroll();
 	cryptfile = *argv++; argc--;
 
-	/* Verify we have all the arguments we need.  */
+	/* Fill in default arguments.  */
 	if (S->user_name == NULL &&
 	    (S->user_name = getenv("FIDOCRYPT_USERNAME")) == NULL) {
-		warnx("specify user name (-N or FIDOCRYPT_USERNAME)");
-		error = 1;
+		S->user_name = DEFAULT_USERNAME;
 	}
 	if (S->user_id == NULL &&
 	    (S->user_id = getenv("FIDOCRYPT_USERID")) == NULL) {
-		warnx("specify user id (-u or FIDOCRYPT_USERID)");
-		error = 1;
+		S->user_id = DEFAULT_USERID;
 	}
 	if (S->type == 0) {
 		/*
