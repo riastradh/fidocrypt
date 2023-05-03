@@ -39,7 +39,7 @@
 #include "fidocrypt.h"
 #include "cred_encrypt.h"
 
-#ifndef HAVE_FIDO_ASSERT_SET_HMAC_SECRET /* XXX libfido2 >=1.7.0 */
+#ifndef HAVE_FIDO_ASSERT_SET_HMAC_SECRET /* XXX libfido2 <1.7.0 */
 /* XXX BEGIN HORRIBLE KLUDGE */
 
 /*

@@ -377,7 +377,7 @@ out:	if (pkstrip)
 		cbor_decref(&pkcanoncbor);
 	if (pkcbor)
 		cbor_decref(&pkcbor);
-#ifndef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX libfido2 >=1.6.0 */
+#ifndef HAVE_FIDO_CRED_AUTHDATA_RAW_PTR	/* XXX libfido2 <1.6.0 */
 	if (authdatacbor)
 		cbor_decref(&authdatacbor);
 #endif
