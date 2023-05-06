@@ -793,7 +793,7 @@ out:	if (!ok)
 }
 
 static void *
-run_thread_per_dev(void *(*start)(void *))
+run_thread_per_dev(void *(*start)(void *), const char *errmsg)
 {
 	fido_dev_info_t *devlist = NULL;
 	size_t ndevs = 0, maxndevs = arraycount(S->thread);
@@ -921,7 +921,7 @@ run_thread_per_dev(void *(*start)(void *))
 	 * needed.
 	 */
 	if (S->result == NULL)
-		errx(1, "no matching devices found");
+		errx(1, "%s", errmsg);
 
 	/* Free the temporaries.  */
 	fido_dev_info_free(&devlist, ndevs);
@@ -1318,7 +1318,7 @@ do_get(size_t *nsecretp, sqlite3 *db)
 	int error;
 
 	/* Get an assertion from one of the devices.  */
-	assert = run_thread_per_dev(get_thread);
+	assert = run_thread_per_dev(get_thread, "no matching devices found");
 
 	/* Verify that there is at least one assertion.  */
 	/* XXX What to do about more than one assertion?  */
@@ -1760,7 +1760,7 @@ cmd_enroll(int argc, char **argv)
 		MSG("tap key `%s' to enroll; waiting...\n", nickname);
 	else
 		MSG("tap new key to enroll; waiting...\n");
-	cred = run_thread_per_dev(enroll_thread);
+	cred = run_thread_per_dev(enroll_thread, "no new devices found");
 
 	/* Get the credential id.  */
 	if ((credential_id = fido_cred_id_ptr(cred)) == NULL ||
@@ -1777,7 +1777,7 @@ cmd_enroll(int argc, char **argv)
 		MSG("tap key `%s' again to verify; waiting...\n", nickname);
 	else
 		MSG("tap new key again to verify; waiting...\n");
-	assert = run_thread_per_dev(get_thread);
+	assert = run_thread_per_dev(get_thread, "matching device not found");
 
 	/* Encrypt the secret.  */
 	if ((error = fido_cred_encrypt(cred, assert, 0, secret, nsecret,
