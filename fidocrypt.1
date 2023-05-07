@@ -505,14 +505,24 @@ parameters file).
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -diag
-.It "fidocrypt: no matching devices found"
-None of the available U2F/FIDO security keys is enrolled in the
-cryptfile when trying to retrieve the secret from it, or all of the
-available U2F/FIDO security keys are already enrolled when trying to
-enroll a new one.
+.It "fidocrypt: no new devices found"
+The
+.Nm Cm enroll
+command found no U2F/FIDO security keys, or only found keys that were
+already enrolled in the cryptfile.
 This can also happen if you explicitly specify an empty username or
 user id in
 .Nm Cm enroll .
+.It "fidocrypt: matching device not found"
+During a
+.Nm Cm enroll
+command, the U2F/FIDO security key was removed in the middle of the
+operation.
+.It "fidocrypt: no matching devices found"
+The
+.Nm Cm get
+command found none of the U2F/FIDO security keys that are enrolled in
+the cryptfile.
 .El
 .Sh SEE ALSO
 .Xr pamu2fcfg 1 ,
