@@ -313,6 +313,7 @@ Full synopsis:
 .Op Fl D Ar seed
 .Op Fl r Ar rpid
 .Op Fl S Ar softfidokey
+.Op Fl V Ar version
 .Ar command
 .Op Ar args...
 .Pp
@@ -392,6 +393,24 @@ is unstable; consult the implementation for details.
 Leave memory unlocked.
 Memory used by fidocrypt may be swapped to nonvolatile storage.
 This is unsafe except on systems with encrypted swap.
+.It Fl V Ar version
+Force the use of a particular protocol version with the U2F/FIDO
+security key.
+Supported versions:
+.Bl -tag -offset indent -width Li -compact
+.It any
+.It u2f
+.It fido2
+.El
+Default:
+.Ql any
+.Pp
+Normally
+.Nm
+will gracefully choose the newest version supported by a device, which
+never changes during a device's lifetime.
+A device enrolled with one version may not be able to get the secret
+with another version.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width ".Ev FIDOCRYPT_USERNAME"

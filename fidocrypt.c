@@ -102,6 +102,11 @@ static struct state {
 	bool			softfido;
 	bool			deterministic;
 	int			type;
+	enum {
+		FORCE_ANY = 0,
+		FORCE_U2F,
+		FORCE_FIDO2,
+	}			force_version;
 
 	const char		*rp_id;
 	const char		*user_id;
@@ -440,6 +445,22 @@ done(unsigned i, void *result, const fido_dev_info_t *devinfo)
 	return result;
 }
 
+static void
+force_version(fido_dev_t *dev)
+{
+
+	switch (S->force_version) {
+	case FORCE_ANY:
+		break;
+	case FORCE_U2F:
+		fido_dev_force_u2f(dev);
+		break;
+	case FORCE_FIDO2:
+		fido_dev_force_fido2(dev);
+		break;
+	}
+}
+
 static void *
 enroll_thread(void *cookie)
 {
@@ -515,6 +536,9 @@ enroll_thread(void *cookie)
 		goto out;
 	}
 #endif
+
+	/* If user requested a particular protocol version, force it.  */
+	force_version(dev);
 
 	/* Create a credential and set its parameters.  */
 	if ((cred = fido_cred_new()) == NULL) {
@@ -694,6 +718,9 @@ get_thread(void *cookie)
 		goto out;
 	}
 #endif
+
+	/* If user requested a particular protocol version, force it.  */
+	force_version(dev);
 
 	/*
 	 * If this is a FIDO2 device, query it with GETINFO to
@@ -2325,7 +2352,7 @@ main(int argc, char **argv)
 	fido_init(0);
 
 	/* Parse common options.  */
-	while ((ch = getopt(argc, argv, "dD:EHhqr:S:Uv")) != -1) {
+	while ((ch = getopt(argc, argv, "dD:EHhqr:S:UvV:")) != -1) {
 		switch (ch) {
 		case 'd':
 			S->debug = S->verbose = true;
@@ -2389,6 +2416,24 @@ main(int argc, char **argv)
 			break;
 		case 'v':
 			S->verbose = true;
+			break;
+		case 'V':
+			if (S->force_version != FORCE_ANY) {
+				warnx("can only force one version");
+				error = 1;
+				break;
+			}
+			if (strcmp(optarg, "any") == 0) {
+				S->force_version = FORCE_ANY;
+			} else if (strcmp(optarg, "u2f") == 0) {
+				S->force_version = FORCE_U2F;
+			} else if (strcmp(optarg, "fido2") == 0) {
+				S->force_version = FORCE_FIDO2;
+			} else {
+				warnx("unknown protocol version");
+				error = 1;
+				break;
+			}
 			break;
 		case '?':
 		case 'h':
