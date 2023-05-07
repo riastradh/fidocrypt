@@ -1,7 +1,7 @@
 /* -*- Mode: C -*- */
 
 /*-
- * Copyright (c) 2020-2022 Taylor R. Campbell
+ * Copyright (c) 2020-2023 Taylor R. Campbell
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
