@@ -559,8 +559,22 @@ enroll_thread(void *cookie)
 
 	/* Make the credential.  */
 	if ((error = fido_dev_make_cred(dev, cred, NULL)) != FIDO_OK) {
-		if (S->verbose && !isdone())
-			warnx("fido_dev_make_cred: %s", fido_strerr(error));
+		if (!isdone()) {
+			if (S->verbose) {
+				/* XXX escape terminal output */
+				MSG("device %s (%s, %s) failed"
+				    " to make credential: %s\n",
+				    path,
+				    fido_dev_info_manufacturer_string(devinfo),
+				    fido_dev_info_product_string(devinfo),
+				    fido_strerr(error));
+			} else {
+				MSG("device %s failed"
+				    " to make credential: %s\n",
+				    path,
+				    fido_strerr(error));
+			}
+		}
 		DBG("cancel %s vendor=%04hx (%s) product=%04hx (%s)\n",
 		    path,
 		    fido_dev_info_vendor(devinfo),
@@ -761,8 +775,20 @@ get_thread(void *cookie)
 
 	/* Get the assertion.  */
 	if ((error = fido_dev_get_assert(dev, assert, NULL)) != FIDO_OK) {
-		if (S->verbose && !isdone())
-			warnx("fido_dev_get_assert: %s", fido_strerr(error));
+		if (!isdone()) {
+			if (S->verbose) {
+				/* XXX escape terminal output */
+				MSG("device %s (%s, %s) failed"
+				    " to get assertion: %s\n",
+				    path,
+				    fido_dev_info_manufacturer_string(devinfo),
+				    fido_dev_info_product_string(devinfo),
+				    fido_strerr(error));
+			} else {
+				MSG("device %s failed to get assertion: %s\n",
+				    path, fido_strerr(error));
+			}
+		}
 		DBG("cancel %s vendor=%04hx (%s) product=%04hx (%s)\n",
 		    path,
 		    fido_dev_info_vendor(devinfo),
