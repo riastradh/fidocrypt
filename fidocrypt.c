@@ -2309,7 +2309,7 @@ static void ATTR_NORETURN
 usage(void)
 {
 
-	fprintf(stderr, "Usage: %s [-Edqv] [-r <rpid>] <command> <args>...\n",
+	fprintf(stderr, "Usage: %s [-qv] <command> <args>...\n",
 	    getprogname());
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Commands:\n");
